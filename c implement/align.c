@@ -28,31 +28,31 @@
 
 typedef float real;                    // Precision of float numbers
 
-struct vocab_item {
+typedef struct {
     long long cn;
     char *item;
-};
+}vocab_item_T, *vocab_item_P;
 
-struct model_var {
-    const int vocab_hash_size = 30000000;  // Maximum 30 * 0.7 = 21M items in the vocabulary
+typedef struct {
+    int vocab_hash_size;  // Maximum items in the vocabulary
     char train_file[MAX_STRING], output_file[MAX_STRING];
     char save_vocab_file[MAX_STRING], read_vocab_file[MAX_STRING];
-    struct vocab_item *vocab;
+    vocab_item_P vocab;
     int *vocab_hash;
-    long long vocab_max_size = 1000, vocab_size = 0;
-    long long train_items = 0, item_count_actual = 0, file_size = 0;
+    long long vocab_max_size, vocab_size;
+    long long train_items, item_count_actual, file_size;
     real starting_alpha;
     real *syn0, *syn1neg;
     char name[MAX_STRING];
     int *table;
-}text_model, kg_model;
+}model_var1_T, *model_var1_P;
 
-struct model_var2 {
+typedef struct {
     char train_file[MAX_STRING];
-    long long train_items = 0, item_count_actual = 0, file_size = 0;
+    long long train_items, item_count_actual, file_size;
     real starting_alpha;
     char name[MAX_STRING];
-}joint_model;
+}model_var2_T, *model_var2_P;
 
 int binary = 0, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
 long long layer1_size = 100;
@@ -60,11 +60,15 @@ long long iter = 5;
 real alpha = 0.025, sample = 1e-3;
 real *expTable;
 clock_t start;
+char split_pattern = '\t';
 
 int negative = 5;
 const int table_size = 1e8;
 
-void InitUnigramTable(struct model_var *model) {
+model_var1_T text_model, kg_model;
+model_var2_T joint_model;
+
+void InitUnigramTable(model_var1_P model) {
     int a, i;
     double train_items_pow = 0;
     double d1, power = 0.75;
@@ -128,7 +132,7 @@ void ReadEntity(char *item, FILE *fin) {
 }
 
 // Returns hash value of a word
-int GetItemHash(struct model_var *model,char *item) {
+int GetItemHash(model_var1_P model,char *item) {
     unsigned long long a, hash = 0;
     for (a = 0; a < strlen(item); a++) hash = hash * 257 + item[a];
     hash = hash % model->vocab_hash_size;
@@ -136,7 +140,7 @@ int GetItemHash(struct model_var *model,char *item) {
 }
 
 // Returns position of a word in the vocabulary; if the word is not found, returns -1
-int SearchVocab(struct model_var *model, char *item) {
+int SearchVocab(model_var1_P model, char *item) {
     unsigned int hash = GetItemHash(model, item);
     while (1) {
         if (model->vocab_hash[hash] == -1) return -1;
@@ -147,7 +151,7 @@ int SearchVocab(struct model_var *model, char *item) {
 }
 
 // Reads a item and returns its index in the vocabulary
-int ReadItemIndex(struct model_var *model, FILE *fin) {
+int ReadItemIndex(model_var1_P model, FILE *fin) {
     char item[MAX_STRING];
     if(!strcmp(TEXT_MODEL, model->name))
         ReadWord(item, fin);
@@ -158,7 +162,7 @@ int ReadItemIndex(struct model_var *model, FILE *fin) {
 }
 
 // Adds a word or entity to the vocabulary
-int AddItemToVocab(struct model_var *model, char *item) {
+int AddItemToVocab(model_var1_P model, char *item) {
     unsigned int hash, length = strlen(item) + 1;
     if (length > MAX_STRING) length = MAX_STRING;
     model->vocab[model->vocab_size].item = (char *)calloc(length, sizeof(char));
@@ -168,7 +172,7 @@ int AddItemToVocab(struct model_var *model, char *item) {
     // Reallocate memory if needed
     if (model->vocab_size + 2 >= model->vocab_max_size) {
         model->vocab_max_size += 1000;
-        model->vocab = (struct vocab_item *)realloc(model->vocab, model->vocab_max_size * sizeof(struct vocab_item));
+        model->vocab = (model_var1_P)realloc(model->vocab, model->vocab_max_size * sizeof(model_var1_T));
     }
     hash = GetItemHash(model, item);
     while (model->vocab_hash[hash] != -1) hash = (hash + 1) % model->vocab_hash_size;
@@ -178,16 +182,16 @@ int AddItemToVocab(struct model_var *model, char *item) {
 
 // Used later for sorting by item counts
 int VocabCompare( const void *a, const void *b) {
-    return ((struct vocab_item *)b)->cn - ((struct vocab_item *)a)->cn;
+    return ((vocab_item_P)b)->cn - ((vocab_item_P)a)->cn;
 }
 
 // Sorts the vocabulary by frequency using word counts
-void SortVocab(struct model_var *model) {
+void SortVocab(model_var1_P model) {
     int a;
     long long size;
     unsigned int hash;
     // Sort the vocabulary and keep </s> at the first position
-    qsort(&model->vocab[1], model->vocab_size - 1, sizeof(struct vocab_item), VocabCompare);
+    qsort(&(model->vocab[1]), model->vocab_size - 1, sizeof(model_var1_T), VocabCompare);
     for (a = 0; a < model->vocab_hash_size; a++) model->vocab_hash[a] = -1;
     size = model->vocab_size;
     model->train_items = 0;
@@ -204,11 +208,11 @@ void SortVocab(struct model_var *model) {
             model->train_items += model->vocab[a].cn;
         }
     }
-    model->vocab = (struct vocab_item *)realloc(model->vocab, (model->vocab_size + 1) * sizeof(struct vocab_item));
+    model->vocab = (model_var1_P)realloc(model->vocab, (model->vocab_size + 1) * sizeof(model_var1_T));
 }
 
 // Reduces the vocabulary by removing infrequent tokens
-void ReduceVocab(struct model_var *model) {
+void ReduceVocab(model_var1_P model) {
     int a, b = 0;
     unsigned int hash;
     for (a = 0; a < model->vocab_size; a++) if (model->vocab[a].cn > min_reduce) {
@@ -228,7 +232,7 @@ void ReduceVocab(struct model_var *model) {
     min_reduce++;
 }
 
-void LearnVocabFromTrainFile(struct model_var *model) {
+void LearnVocabFromTrainFile(model_var1_P model) {
     char item[MAX_STRING];
     FILE *fin;
     long long a, i;
@@ -270,14 +274,14 @@ void LearnVocabFromTrainFile(struct model_var *model) {
     fclose(fin);
 }
 
-void SaveVocab(struct model_var *model) {
+void SaveVocab(model_var1_P model) {
     long long i;
     FILE *fo = fopen(model->save_vocab_file, "wb");
     for (i = 0; i < model->vocab_size; i++) fprintf(fo, "%s %lld\n", model->vocab[i].item, model->vocab[i].cn);
     fclose(fo);
 }
 
-void ReadVocab(struct model_var *model) {
+void ReadVocab(model_var1_P model) {
     long long a, i = 0;
     char c;
     char item[MAX_STRING];
@@ -295,7 +299,7 @@ void ReadVocab(struct model_var *model) {
             ReadEntity(item, fin);
         if (feof(fin)) break;
         a = AddItemToVocab(model, item);
-        fscanf(fin, "%lld%c", &model->vocab[a].cn, &c);
+        fscanf(fin, "%lld%c", &(model->vocab[a].cn), &c);
         i++;
     }
     SortVocab(model);
@@ -317,7 +321,7 @@ void ReadVocab(struct model_var *model) {
         model->file_size = model->vocab[0].cn;
 }
 
-void InitNet(struct model_var *model) {
+void InitNet(model_var1_P model) {
     long long a, b;
     unsigned long long next_random = 1;
     a = posix_memalign((void **)&(model->syn0), 128, (long long)model->vocab_size * layer1_size * sizeof(real));
@@ -688,14 +692,17 @@ void TrainModel(char *model_name) {
     for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
 }
 
-void SaveVector(struct model_var *model){
+void SaveVector(model_var1_P model, int id){
     FILE *fo;
+    char tmp_output_file[MAX_STRING];
     long a, b;
-    fo = fopen(model->output_file, "wb");
+    strcpy(tmp_output_file, model->output_file);
+    strcat(tmp_output_file,(char)(id+48));
+    fo = fopen(tmp_output_file, "wb");
     // Save the item vectors
     fprintf(fo, "%lld %lld\n", model->vocab_size, layer1_size);
     for (a = 0; a < model->vocab_size; a++) {
-        fprintf(fo, "%s ", model->vocab[a].item);
+        fprintf(fo, "%s%c", model->vocab[a].item, split_pattern);
         if (binary) for (b = 0; b < layer1_size; b++) fwrite(&(model->syn0[a * layer1_size + b]), sizeof(real), 1, fo);
         else for (b = 0; b < layer1_size; b++) fprintf(fo, "%lf ", model->syn0[a * layer1_size + b]);
         fprintf(fo, "\n");
@@ -703,8 +710,14 @@ void SaveVector(struct model_var *model){
     fclose(fo);
 }
 
-void InitModel(struct model_var *model){
-    model->vocab = (struct vocab_item *)calloc(model->vocab_max_size, sizeof(struct vocab_item));
+void InitModel(model_var1_P model){
+    model->vocab_hash_size=30000000;  // Maximum 30 * 0.7 = 21M items in the vocabulary
+    model->vocab_max_size = 1000;
+    model->vocab_size = 0;
+    model->train_items = 0;
+    model->item_count_actual = 0;
+    model->file_size = 0;
+    model->vocab = (model_var1_P)calloc(model->vocab_max_size, sizeof(model_var1_T));
     model->vocab_hash = (int *)calloc(model->vocab_hash_size, sizeof(int));
     if (model->read_vocab_file[0] != 0) ReadVocab(model); else LearnVocabFromTrainFile(model);
     if (model->save_vocab_file[0] != 0) SaveVocab(model);
@@ -716,7 +729,7 @@ void InitModel(struct model_var *model){
 void InitJointModel(){
     joint_model.file_size = 0;
     joint_model.train_items = 0;
-    
+    joint_model.item_count_actual = 0;
     //read anchor file to initialize the file size
     char item[MAX_STRING];
     FILE *fin;
@@ -803,7 +816,7 @@ int main(int argc, char **argv) {
         printf("\t-read_entity_vocab <file>\n");
         printf("\t\tThe entity vocabulary will be read from <file>, not constructed from the training data\n");
         printf("\nExamples:\n");
-        printf("./word2vec -train data.txt -output vec.txt -size 200 -window 5 -sample 1e-4 -negative 5 -hs 0 -binary 0 -cbow 1 -iter 3\n\n");
+        printf("./align -train_text train_text_sample -train_kg train_kg_sample -train_anchor train_anchors_sample -output_word vec_word -output_entity vec_entity -size 200 -sample 1e-4 -negative 5 -binary 1 -save_word_vocab vocab_word.txt -save_entity_vocab vocab_entity.txt -iter 3\n\n");
         return 0;
     }
     text_model.output_file[0] = 0;
@@ -853,9 +866,10 @@ int main(int argc, char **argv) {
         TrainModel((char *)KG_MODEL);
         TrainModel((char *)JOINT_MODEL);
         printf("\niter %d success!\n", local_iter);
+        printf("saving results...\n");
+        SaveVector(&text_model, local_iter);
+        SaveVector(&kg_model, local_iter);
     }
-    printf("saving results...\n");
-    SaveVector(&text_model);
-    SaveVector(&kg_model);
+    
     return 0;
 }
