@@ -41,7 +41,7 @@ struct model_var {
     int *vocab_hash;
     long long vocab_max_size, vocab_size;
     long long train_items, item_count_actual, file_size;
-    real starting_alpha;
+    real starting_alpha, alpha;
     real *syn0, *syn1neg;
     char name[MAX_STRING];
     int *table;
@@ -50,7 +50,7 @@ struct model_var {
 struct model_var2 {
     char train_file[MAX_STRING];
     long long train_items, item_count_actual, file_size;
-    real starting_alpha;
+    real starting_alpha, alpha;
     char name[MAX_STRING];
 }joint_model;
 
@@ -63,6 +63,7 @@ clock_t start;
 char output_path[MAX_STRING], input_path[MAX_STRING];
 int negative = 5;
 const int table_size = 1e8;
+const char save_interval = '\t';
 
 void InitUnigramTable(struct model_var *model) {
     int a, i;
@@ -351,13 +352,13 @@ void *TrainTextModelThread(void *id) {
             last_word_count = word_count;
             if ((debug_mode > 1)) {
                 now=clock();
-                printf("%c%s: Alpha: %f  Progress: %.2f%%  Words/thread/sec: %.2fk  ", 13, text_model.name, alpha,
+                printf("%c%s: Alpha: %f  Progress: %.2f%%  Words/thread/sec: %.2fk  ", 13, text_model.name, text_model.alpha,
                        text_model.item_count_actual / (real)(text_model.train_items + 1) * 100,
                        text_model.item_count_actual / ((real)(now - start + 1) / (real)CLOCKS_PER_SEC * 1000));
                 fflush(stdout);
             }
-            alpha = text_model.starting_alpha * (1 - text_model.item_count_actual / (real)(iter * text_model.train_items + 1));
-            if (alpha < text_model.starting_alpha * 0.0001) alpha = text_model.starting_alpha * 0.0001;
+            text_model.alpha = text_model.starting_alpha * (1 - text_model.item_count_actual / (real)(iter * text_model.train_items + 1));
+            if (text_model.alpha < text_model.starting_alpha * 0.0001) text_model.alpha = text_model.starting_alpha * 0.0001;
         }
         if (sentence_length == 0) {
             while (1) {
@@ -412,9 +413,9 @@ void *TrainTextModelThread(void *id) {
                 l2 = target * layer1_size;
                 f = 0;
                 for (c = 0; c < layer1_size; c++) f += text_model.syn0[c + l1] * text_model.syn1neg[c + l2];
-                if (f > MAX_EXP) g = (label - 1) * alpha;
-                else if (f < -MAX_EXP) g = (label - 0) * alpha;
-                else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
+                if (f > MAX_EXP) g = (label - 1) * text_model.alpha;
+                else if (f < -MAX_EXP) g = (label - 0) * text_model.alpha;
+                else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * text_model.alpha;
                 for (c = 0; c < layer1_size; c++) neu1e[c] += g * text_model.syn1neg[c + l2];
                 for (c = 0; c < layer1_size; c++) text_model.syn1neg[c + l2] += g * text_model.syn0[c + l1];
             }
@@ -461,13 +462,13 @@ void *TrainKgModelThread(void *id) {
             last_entity_count = entity_count;
             if ((debug_mode > 1)) {
                 now=clock();
-                printf("%c%s: Alpha: %f  Progress: %.2f%%  entities/thread/sec: %.2fk  ", 13, kg_model.name, alpha,
+                printf("%c%s: Alpha: %f  Progress: %.2f%%  entities/thread/sec: %.2fk  ", 13, kg_model.name, kg_model.alpha,
                        kg_model.item_count_actual / (real)(kg_model.file_size + 1) * 100,
                        kg_model.item_count_actual / ((real)(now - start + 1) / (real)CLOCKS_PER_SEC * 1000));
                 fflush(stdout);
             }
-            alpha = kg_model.starting_alpha * (1 - kg_model.item_count_actual / (real)(iter * kg_model.file_size + 1));
-            if (alpha < kg_model.starting_alpha * 0.0001) alpha = kg_model.starting_alpha * 0.0001;
+            kg_model.alpha = kg_model.starting_alpha * (1 - kg_model.item_count_actual / (real)(iter * kg_model.file_size + 1));
+            if (kg_model.alpha < kg_model.starting_alpha * 0.0001) kg_model.alpha = kg_model.starting_alpha * 0.0001;
         }
         if (sentence_length == 0) {
             while(1){
@@ -524,9 +525,9 @@ void *TrainKgModelThread(void *id) {
                 l2 = target * layer1_size;
                 f = 0;
                 for (c = 0; c < layer1_size; c++) f += kg_model.syn0[c + l1] * kg_model.syn1neg[c + l2];
-                if (f > MAX_EXP) g = (label - 1) * alpha;
-                else if (f < -MAX_EXP) g = (label - 0) * alpha;
-                else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
+                if (f > MAX_EXP) g = (label - 1) * kg_model.alpha;
+                else if (f < -MAX_EXP) g = (label - 0) * kg_model.alpha;
+                else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * kg_model.alpha;
                 for (c = 0; c < layer1_size; c++) neu1e[c] += g * kg_model.syn1neg[c + l2];
                 for (c = 0; c < layer1_size; c++) kg_model.syn1neg[c + l2] += g * kg_model.syn0[c + l1];
             }
@@ -570,13 +571,13 @@ void *TrainJointModelThread(void *id) {
             last_anchor_count = anchor_count;
             if ((debug_mode > 1)) {
                 now=clock();
-                printf("%c%s: Alpha: %f  Progress: %.2f%%  anchors/thread/sec: %.2fk  ", 13, joint_model.name, alpha,
+                printf("%c%s: Alpha: %f  Progress: %.2f%%  anchors/thread/sec: %.2fk  ", 13, joint_model.name, joint_model.alpha,
                        joint_model.item_count_actual / (real)(joint_model.file_size + 1) * 100,
                        joint_model.item_count_actual / ((real)(now - start + 1) / (real)CLOCKS_PER_SEC * 1000));
                 fflush(stdout);
             }
-            alpha = joint_model.starting_alpha * (1 - joint_model.item_count_actual / (real)(iter * joint_model.file_size + 1));
-            if (alpha < joint_model.starting_alpha * 0.0001) alpha = joint_model.starting_alpha * 0.0001;
+            joint_model.alpha = joint_model.starting_alpha * (1 - joint_model.item_count_actual / (real)(iter * joint_model.file_size + 1));
+            if (joint_model.alpha < joint_model.starting_alpha * 0.0001) joint_model.alpha = joint_model.starting_alpha * 0.0001;
         }
         if (sentence_length == 0) {
             while(1){
@@ -648,9 +649,9 @@ void *TrainJointModelThread(void *id) {
                 l2 = target * layer1_size;
                 f = 0;
                 for (c = 0; c < layer1_size; c++) f += kg_model.syn0[c + l1] * text_model.syn1neg[c + l2];
-                if (f > MAX_EXP) g = (label - 1) * alpha;
-                else if (f < -MAX_EXP) g = (label - 0) * alpha;
-                else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
+                if (f > MAX_EXP) g = (label - 1) * joint_model.alpha;
+                else if (f < -MAX_EXP) g = (label - 0) * joint_model.alpha;
+                else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * joint_model.alpha;
                 for (c = 0; c < layer1_size; c++) neu1e[c] += g * text_model.syn1neg[c + l2];
                 for (c = 0; c < layer1_size; c++) text_model.syn1neg[c + l2] += g * kg_model.syn0[c + l1];
             }
@@ -673,19 +674,19 @@ void TrainModel(char *model_name) {
     if(!strcmp(model_name, TEXT_MODEL)){
         printf("\nStarting training using file %s\n", text_model.train_file);
         text_model.item_count_actual = 0;
-        text_model.starting_alpha = alpha;
+        text_model.starting_alpha = text_model.alpha;
         for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainTextModelThread, (void *)a);
     }
     else if(!strcmp(model_name, KG_MODEL)){
         printf("\nStarting training using file %s\n", kg_model.train_file);
         kg_model.item_count_actual = 0;
-        kg_model.starting_alpha = alpha;
+        kg_model.starting_alpha = kg_model.alpha;
         for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainKgModelThread, (void *)a);
     }
     else{
         printf("\nStarting training using file %s\n", joint_model.train_file);
         joint_model.item_count_actual = 0;
-        joint_model.starting_alpha = alpha;
+        joint_model.starting_alpha = joint_model.alpha;
         for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainJointModelThread, (void *)a);
     }
     for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
@@ -700,7 +701,7 @@ void SaveVector(struct model_var *model, int id){
     // Save the item vectors
     fprintf(fo, "%lld %lld\n", model->vocab_size, layer1_size);
     for (a = 0; a < model->vocab_size; a++) {
-        fprintf(fo, "%s ", model->vocab[a].item);
+        fprintf(fo, "%s%c", model->vocab[a].item, save_interval);
         if (binary) for (b = 0; b < layer1_size; b++) fwrite(&(model->syn0[a * layer1_size + b]), sizeof(real), 1, fo);
         else for (b = 0; b < layer1_size; b++) fprintf(fo, "%lf ", model->syn0[a * layer1_size + b]);
         fprintf(fo, "\n");
@@ -715,6 +716,7 @@ void InitModel(struct model_var *model){
     model->train_items = 0;
     model->item_count_actual = 0;
     model->file_size = 0;
+    model->alpha = alpha;
     model->vocab = (struct vocab_item *)calloc(model->vocab_max_size, sizeof(struct vocab_item));
     model->vocab_hash = (int *)calloc(model->vocab_hash_size, sizeof(int));
     if (model->read_vocab_file[0] != 0) ReadVocab(model); else LearnVocabFromTrainFile(model);
@@ -728,6 +730,7 @@ void InitJointModel(){
     joint_model.file_size = 0;
     joint_model.train_items = 0;
     joint_model.item_count_actual = 0;
+    joint_model.alpha = alpha;
     //read anchor file to initialize the file size
     char item[MAX_STRING];
     FILE *fin;
