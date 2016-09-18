@@ -862,9 +862,11 @@ int main(int argc, char **argv) {
         TrainModel((char *)KG_MODEL);
         TrainModel((char *)JOINT_MODEL);
         printf("\niter %d success!\n", local_iter);
-        printf("saving results...\n");
-        SaveVector(&text_model, local_iter);
-        SaveVector(&kg_model, local_iter);
+        if(local_iter%5==0){
+            printf("saving results...\n");
+            SaveVector(&text_model, local_iter);
+            SaveVector(&kg_model, local_iter);
+        }
     }
     return 0;
 }

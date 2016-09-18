@@ -16,13 +16,14 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#define MAX_STRING 2000
 
-#define MAX_STRING 100
-
-const long long max_size = 2000;         // max length of strings
 const long long N = 40;                  // number of closest words that will be shown
 const long long max_w = 50;              // max length of vocabulary entries
-const char split_pattern = '\t';
+char interval_pattern = '\t';
+long long size;
+char items[100][MAX_STRING];
+long long bi[100];
 
 struct vocab_item{
     char read_file[MAX_STRING];
@@ -32,14 +33,12 @@ struct vocab_item{
     char label[MAX_STRING];
 }word, entity;
 
-long long size;
-
-void FindNearest(int top_n, float *vec){
+void FindNearest(int top_n, float *vec, struct vocab_item *item){
     char *bestw[top_n];
     float dist, bestd[top_n];
     long long a, c, d;
     float len;
-    for (a = 0; a < top_n; a++) bestw[a] = (char *)malloc(max_size * sizeof(char));
+    for (a = 0; a < top_n; a++) bestw[a] = (char *)malloc(MAX_STRING * sizeof(char));
     for (a = 0; a < top_n; a++) bestd[a] = 0;
     for (a = 0; a < top_n; a++) bestw[a][0] = 0;
     
@@ -49,41 +48,20 @@ void FindNearest(int top_n, float *vec){
     len = sqrt(len);
     for (a = 0; a < size; a++) vec[a] /= len;
     //compute nearest words and entities
-
-    printf("\n                                              %s       Cosine distance\n------------------------------------------------------------------------\n", word.label);
-    for (a = 0; a < top_n; a++) bestd[a] = -1;
-    for (a = 0; a < top_n; a++) bestw[a][0] = 0;
-    //compute distance with each word
-    for (c = 0; c < word.vocab_size; c++) {
-        a = 0;
-        //skip self
-        //if (index == c) continue;
-        dist = 0;
-        for (a = 0; a < size; a++) dist += vec[a] * word.M[a + c * size];
-        for (a = 0; a < top_n; a++) {
-            if (dist > bestd[a]) {
-                for (d = top_n - 1; d > a; d--) {
-                    bestd[d] = bestd[d - 1];
-                    strcpy(bestw[d], bestw[d - 1]);
-                }
-                bestd[a] = dist;
-                strcpy(bestw[a], &word.vocab[c * max_w]);
-                break;
-            }
-        }
-    }
-    for (a = 0; a < top_n; a++) printf("%50s\t\t%f\n", bestw[a], bestd[a]);
     
-    printf("\n                                              %s       Cosine distance\n------------------------------------------------------------------------\n", entity.label);
+    printf("\n                                              %s       Cosine distance\n------------------------------------------------------------------------\n", item->label);
     for (a = 0; a < top_n; a++) bestd[a] = -1;
     for (a = 0; a < top_n; a++) bestw[a][0] = 0;
     //compute distance with each word
-    for (c = 0; c < entity.vocab_size; c++) {
+    for (c = 0; c < item->vocab_size; c++) {
+        if (c == bi[0]) continue;
+        if (c == bi[1]) continue;
+        if (c == bi[2]) continue;
         a = 0;
         //skip self
         //if (index == c) continue;
         dist = 0;
-        for (a = 0; a < size; a++) dist += vec[a] * entity.M[a + c * size];
+        for (a = 0; a < size; a++) dist += vec[a] * item->M[a + c * size];
         for (a = 0; a < top_n; a++) {
             if (dist > bestd[a]) {
                 for (d = top_n - 1; d > a; d--) {
@@ -91,33 +69,61 @@ void FindNearest(int top_n, float *vec){
                     strcpy(bestw[d], bestw[d - 1]);
                 }
                 bestd[a] = dist;
-                strcpy(bestw[a], &entity.vocab[c * max_w]);
+                strcpy(bestw[a], &item->vocab[c * max_w]);
                 break;
             }
         }
     }
     for (a = 0; a < top_n; a++) printf("%50s\t\t%f\n", bestw[a], bestd[a]);
+
 }
 
-int SearchVocab(char *item, struct vocab_item *v_item){
-    int b;
-    for (b = 0; b < v_item->vocab_size; b++) if (!strcmp(&v_item->vocab[b * max_w], item)) break;
-    if (b == v_item->vocab_size) b = -1;
-    return b;
+//return 0 if there is a word out of dic, otherwise 1;
+int SearchVocab(struct vocab_item *v_item, int cn){
+    int a,b;
+    for (a = 0; a < cn; a++) {
+        for (b = 0; b < v_item->vocab_size; b++) if (!strcmp(&v_item->vocab[b * max_w], items[a])) break;
+        if (b == v_item->vocab_size)
+            return 0;
+        
+        bi[a] = b;
+    }
+    return 1;
 }
 
-void GetItem(char *item){
-    long long a=0;
+//-1 if EXIT, return the number of input items
+int GetItem(){
+    char item[MAX_STRING];
+    long long a=0, b, c;
+    int cn;
     printf("Enter word or entity (EXIT to break): ");
     a = 0;
     while (1) {
         item[a] = fgetc(stdin);
-        if ((item[a] == '\n') || (a >= max_size - 1)) {
+        if ((item[a] == '\n') || (a >= MAX_STRING - 1)) {
             item[a] = 0;
             break;
         }
         a++;
     }
+    if (!strcmp(item, "EXIT")) return -1;
+    cn = 0;
+    b = 0;
+    c = 0;
+    while (1) {
+        items[cn][b] = item[c];
+        b++;
+        c++;
+        items[cn][b] = 0;
+        if (item[c] == 0) break;
+        if (item[c] == interval_pattern) {
+            cn++;
+            b = 0;
+            c++;
+        }
+    }
+    cn++;
+    return cn;
 }
 
 void ReadVector(struct vocab_item *item){
@@ -141,7 +147,7 @@ void ReadVector(struct vocab_item *item){
         a = 0;
         while (1) {
             item->vocab[b * max_w + a] = fgetc(f);
-            if (feof(f) || (item->vocab[b * max_w + a] == split_pattern)) break;
+            if (feof(f) || (item->vocab[b * max_w + a] == interval_pattern)) break;
             if ((a < max_w) && (item->vocab[b * max_w + a] != '\n')) a++;
         }
         item->vocab[b * max_w + a] = 0;
@@ -167,11 +173,11 @@ int ArgPos(char *str, int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-    char item[max_size];
-    int i, word_index = -1, entity_index = -1;
+    int i, cn, word_index = -1, entity_index = -1;
     long long a;
-    float word_vec[max_size], entity_vec[max_size];
+    float word_vec[MAX_STRING], entity_vec[MAX_STRING];
     int has_word = 0, has_entity = 0;
+    
     if (argc < 2) {
         printf("\t-read_word_vector <file>\n");
         printf("\t\tUse <file> to read the resulting word vectors\n");
@@ -224,30 +230,39 @@ int main(int argc, char **argv) {
         //search in the entity vocab
     }
     while(1){
-        GetItem(item);
-        if (!strcmp(item, "EXIT")) break;
-        if(has_word)
-            word_index = SearchVocab(item, &word);
-        if(has_entity)
-            entity_index = SearchVocab(item, &entity);
-        
-        if(word_index==-1 && entity_index==-1){
-            printf("Out of dictionary word or entity: %s!\n", item);
+        cn = GetItem();
+        if (-1==cn) break;
+        else if(cn<3){
+            printf("Only %d words were entered.. three words are needed at the input to perform the calculation\n", cn);
             continue;
         }
-        if(word_index!=-1){
-            for (a = 0; a < size; a++) word_vec[a] = 0;
-            for (a = 0; a < size; a++) word_vec[a] += word.M[a + word_index * size];
-            printf("\nWord: %s  Position in vocabulary: %d\n", item, word_index);
-            FindNearest(N, word_vec);
+        else{
+            if(has_word){
+                word_index = SearchVocab(&word, cn);
+                if(word_index){
+                    for (a = 0; a < cn; a++)
+                        printf("\nWord: %s  Position in vocabulary: %lld\n", items[a], bi[a]);
+                    for (a = 0; a < size; a++) word_vec[a] = 0;
+                    for (a = 0; a < size; a++) word_vec[a] += word.M[a + bi[1] * size]-word.M[a + bi[0] * size]+word.M[a + bi[2] * size];
+                    FindNearest(N, word_vec, &word);
+                }
+            }
+            if(has_entity){
+                entity_index = SearchVocab(&entity, cn);
+                if(entity_index){
+                    for (a = 0; a < cn; a++)
+                        printf("\nEntity: %s  Position in vocabulary: %lld\n", items[a], bi[a]);
+                    for (a = 0; a < size; a++) entity_vec[a] = 0;
+                    for (a = 0; a < size; a++) entity_vec[a] += entity.M[a + bi[1] * size]-entity.M[a + bi[0] * size]+entity.M[a + bi[2] * size];
+
+                    FindNearest(N, entity_vec, &entity);
+                }
+            }
+            if(!word_index && !entity_index){
+                printf("Out of dictionary word or entity!\n");
+                continue;
+            }
         }
-        if(entity_index!=-1){
-            for (a = 0; a < size; a++) entity_vec[a] = 0;
-            printf("\nEntity: %s  Position in vocabulary: %d\n", item, entity_index);
-            for (a = 0; a < size; a++) entity_vec[a] += entity.M[a + entity_index * size];
-            FindNearest(N, entity_vec);
-        }
-        
     }
     
     return 0;
