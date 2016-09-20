@@ -16,9 +16,10 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <ctype.h>
 #define MAX_STRING 2000
 
-const long long N = 1;                  // number of closest words that will be shown
+const int N = 1;                  // number of closest words that will be shown
 const long long max_w = 50;              // max length of vocabulary entries
 char interval_pattern = '\t';
 char items[4][MAX_STRING],eval_file[MAX_STRING];
@@ -101,7 +102,7 @@ int GetItem(char *item){
             break;
         }
         
-        items[cn][b] = item[c];
+        items[cn][b] = toupper(item[c]);
         b++;
         c++;
         items[cn][b] = 0;
@@ -141,6 +142,7 @@ void ReadVector(){
             if ((a < max_w) && (word.vocab[b * max_w + a] != '\n')) a++;
         }
         word.vocab[b * max_w + a] = 0;
+        for (a = 0; a < max_w; a++) word.vocab[b * max_w + a] = toupper(word.vocab[b * max_w + a]);
         for (a = 0; a < word.layer_size; a++) fread(&word.M[a + b * word.layer_size], sizeof(float), 1, f);
         len = 0;
         for (a = 0; a < word.layer_size; a++) len += word.M[a + b * word.layer_size] * word.M[a + b * word.layer_size];
@@ -198,8 +200,8 @@ int main(int argc, char **argv) {
             if((read = getline(&line, &len, fi)) == -1)
                 break;
             line_count++;
-            if(line_count%1000==0)
-                printf("processing..%d lines\n", line_count);
+            if(line_count%100==0)
+                printf("process line %d\n",line_count);
             cn = GetItem(line);
             if (4!=cn) continue;
             
@@ -208,7 +210,7 @@ int main(int argc, char **argv) {
                 for (a = 0; a < word.layer_size; a++) word_vec[a] = 0;
                 for (a = 0; a < word.layer_size; a++) word_vec[a] += word.M[a + bi[1] * word.layer_size]-word.M[a + bi[0] * word.layer_size]+word.M[a + bi[2] * word.layer_size];
                 is_correct = FindNearest(N, word_vec);
-                if(is_correct) {correct_num++;printf("%s\n",line);}
+                if(is_correct) correct_num++;
             }
             else skip++;
         }
