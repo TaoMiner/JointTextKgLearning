@@ -23,6 +23,8 @@ const long long max_size = 2000;         // max length of strings
 const long long N = 40;                  // number of closest words that will be shown
 const long long max_w = 50;              // max length of vocabulary entries
 const char split_pattern = '\t';
+const int label_vocab_hash_size = 30000000;  // Maximum 30 * 0.7 = 21M words in the vocabulary
+
 
 struct vocab_item{
     char read_file[MAX_STRING];
@@ -32,7 +34,91 @@ struct vocab_item{
     char label[MAX_STRING];
 }word, entity;
 
+struct set{
+    char *label;
+    int num;
+    int max_pos_size;
+    int *vocab_pos;
+}*label_vocab;
+
 long long size;
+int (*label_vocab_hash);
+int label_vocab_index=0;
+long long label_vocab_size = 1000;
+int pos_size = 10;
+
+// Returns hash value of a item
+int GetLabelHash(char *label) {
+    unsigned long long a, hash = 0;
+    for (a = 0; a < strlen(label); a++) hash = hash * 257 + label[a];
+    hash = hash % label_vocab_hash_size;
+    return hash;
+}
+
+// Returns position of an item in the vocabulary; if the item is not found, returns -1
+int SearchLabelVocab(char *label) {
+    unsigned int hash = GetLabelHash(label);
+    while (1) {
+        if (label_vocab_hash[hash] == -1) return -1;
+        if (!strcmp(label, label_vocab[label_vocab_hash[hash]].label)) return label_vocab_hash[hash];
+        hash = (hash + 1) % label_vocab_hash_size;
+    }
+    return -1;
+}
+
+// Adds a label to the vocabulary
+int AddLabelToSet(char *label) {
+    unsigned int hash, length = strlen(label) + 1;
+    long long a = label_vocab_size;
+    label_vocab[label_vocab_index].label = (char *)calloc(length, sizeof(char));
+    strcpy(label_vocab[label_vocab_index].label, label);
+    label_vocab_index++;
+    // Reallocate memory if needed
+    if (label_vocab_index + 2 >= label_vocab_size) {
+        label_vocab_size += 1000;
+        label_vocab = (struct set *)realloc(label_vocab, label_vocab_size * sizeof(struct set));
+        for(;a<label_vocab_size;a++){
+            label_vocab[a].num = 0;
+            label_vocab[a].max_pos_size = pos_size;
+            label_vocab[a].vocab_pos = (int *)calloc(pos_size, sizeof(int));
+            for(int b=0;b<pos_size;b++)
+                label_vocab[a].vocab_pos[b] = -1;
+        }
+    }
+    hash = GetLabelHash(label);
+    while (label_vocab_hash[hash] != -1) hash = (hash + 1) % label_vocab_hash_size;
+    label_vocab_hash[hash] = label_vocab_index - 1;
+    return label_vocab_index - 1;
+}
+
+// Adds a label to the vocabulary
+void AddEntityToLabel(int vocab_index) {
+    char label[MAX_STRING];
+    char c;
+    int a, b;
+    for(a = 0;a<max_w;a++){
+        c = entity.vocab[vocab_index * max_w+a];
+        if(c == 0)
+            break;
+        if(c == '('){
+            a--;
+            break;
+        }
+        label[a] = c;
+    }
+    label[a] = 0;
+    b = SearchLabelVocab(label);
+    if(b==-1)
+        b = AddLabelToSet(label);
+    
+    if(label_vocab[b].vocab_pos[label_vocab[b].num]==-1)
+        label_vocab[b].vocab_pos[label_vocab[b].num] = vocab_index;
+    label_vocab[b].num++;
+    if(label_vocab[b].num+2>label_vocab[b].max_pos_size){
+        label_vocab[b].max_pos_size += 10;
+        label_vocab[b].vocab_pos = (int *)realloc(label_vocab[b].vocab_pos, label_vocab[b].max_pos_size * sizeof(int));
+    }
+}
 
 void FindNearest(int top_n, float *vec){
     char *bestw[top_n];
@@ -49,7 +135,7 @@ void FindNearest(int top_n, float *vec){
     len = sqrt(len);
     for (a = 0; a < size; a++) vec[a] /= len;
     //compute nearest words and entities
-
+    
     printf("\n                                              %s       Cosine distance\n------------------------------------------------------------------------\n", word.label);
     for (a = 0; a < top_n; a++) bestd[a] = -1;
     for (a = 0; a < top_n; a++) bestw[a][0] = 0;
@@ -99,10 +185,29 @@ void FindNearest(int top_n, float *vec){
     for (a = 0; a < top_n; a++) printf("%50s\t\t%f\n", bestw[a], bestd[a]);
 }
 
-int SearchVocab(char *item, struct vocab_item *v_item){
-    int b;
-    for (b = 0; b < v_item->vocab_size; b++) if (!strcmp(&v_item->vocab[b * max_w], item)) break;
-    if (b == v_item->vocab_size) b = -1;
+int SearchVocab(char *item, int is_entity){
+    int a, b, c;
+    if(is_entity){
+        b = SearchLabelVocab(item);
+        if(b==-1) return -1;
+        if(label_vocab[b].num>0){
+            printf("please input the entity number:\n");
+            for(int i=0;i<label_vocab[b].num;i++){
+                a =label_vocab[b].vocab_pos[i];
+                if(a==-1)
+                    continue;
+                printf("%d : %s\n",i, &entity.vocab[a*max_w]);
+            }
+        }
+        scanf("%d",&c);
+        getchar();
+        
+        b =label_vocab[b].vocab_pos[c];
+    }
+    else{
+        for (b = 0; b < word.vocab_size; b++) if (!strcmp(&word.vocab[b * max_w], item)) break;
+        if (b == word.vocab_size) b = -1;
+    }
     return b;
 }
 
@@ -145,6 +250,9 @@ void ReadVector(struct vocab_item *item){
             if ((a < max_w) && (item->vocab[b * max_w + a] != '\n')) a++;
         }
         item->vocab[b * max_w + a] = 0;
+        if(!strcmp(item->label,"Entity")){
+            AddEntityToLabel(b);
+        }
         for (a = 0; a < item->layer_size; a++) fread(&item->M[a + b * item->layer_size], sizeof(float), 1, f);
         len = 0;
         for (a = 0; a < item->layer_size; a++) len += item->M[a + b * item->layer_size] * item->M[a + b * item->layer_size];
@@ -199,12 +307,25 @@ int main(int argc, char **argv) {
         sprintf(word.label, "Word");
     }
     if(0!=entity.read_file[0]){
+        sprintf(entity.label, "Entity");
         printf("loading entity vectors...\n");
+        label_vocab_hash = (int *)calloc(label_vocab_hash_size, sizeof(int));
+        for(int a=0;a<label_vocab_hash_size;a++) label_vocab_hash[a] = -1;
+        label_vocab = (struct set *)calloc(label_vocab_size, sizeof(struct set));
+        for(int a=0;a<label_vocab_size;a++){
+            label_vocab[a].num = 0;
+            label_vocab[a].max_pos_size = pos_size;
+            label_vocab[a].vocab_pos = (int *)calloc(pos_size, sizeof(int));
+            for(int b=0;b<pos_size;b++)
+                label_vocab[a].vocab_pos[b] = -1;
+        }
+        label_vocab_index = 0;
         ReadVector(&entity);
         if(entity.vocab_size>0)
             printf("Successfully load %lld entities with %lld dimentions from %s\n", entity.vocab_size, entity.layer_size, entity.read_file);
+        printf("Successfully load %d entity labels\n", label_vocab_index);
         has_entity = 1;
-        sprintf(entity.label, "Entity");
+        
     }
     if(has_word&&has_entity){
         if(word.layer_size!=entity.layer_size){
@@ -223,13 +344,14 @@ int main(int argc, char **argv) {
         size = entity.layer_size;
         //search in the entity vocab
     }
+    if(!has_word&&!has_entity){printf("error! no words and entities loaded!");exit(1);}
     while(1){
         GetItem(item);
         if (!strcmp(item, "EXIT")) break;
         if(has_word)
-            word_index = SearchVocab(item, &word);
+            word_index = SearchVocab(item, 0);
         if(has_entity)
-            entity_index = SearchVocab(item, &entity);
+            entity_index = SearchVocab(item, 1);
         
         if(word_index==-1 && entity_index==-1){
             printf("Out of dictionary word or entity: %s!\n", item);
@@ -243,7 +365,7 @@ int main(int argc, char **argv) {
         }
         if(entity_index!=-1){
             for (a = 0; a < size; a++) entity_vec[a] = 0;
-            printf("\nEntity: %s  Position in vocabulary: %d\n", item, entity_index);
+            printf("\nEntity: %s  Position in vocabulary: %d\n", &entity.vocab[entity_index*max_w], entity_index);
             for (a = 0; a < size; a++) entity_vec[a] += entity.M[a + entity_index * size];
             FindNearest(N, entity_vec);
         }
