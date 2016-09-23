@@ -44,7 +44,7 @@ struct set{
 long long size;
 int (*label_vocab_hash);
 int label_vocab_index=0;
-long long label_vocab_size = 1000;
+long long label_vocab_size = 3653051;
 int pos_size = 10;
 
 // Returns hash value of a item
@@ -70,6 +70,7 @@ int SearchLabelVocab(char *label) {
 int AddLabelToSet(char *label) {
     unsigned int hash, length = strlen(label) + 1;
     long long a = label_vocab_size;
+    int b;
     label_vocab[label_vocab_index].label = (char *)calloc(length, sizeof(char));
     strcpy(label_vocab[label_vocab_index].label, label);
     label_vocab_index++;
@@ -81,7 +82,7 @@ int AddLabelToSet(char *label) {
             label_vocab[a].num = 0;
             label_vocab[a].max_pos_size = pos_size;
             label_vocab[a].vocab_pos = (int *)calloc(pos_size, sizeof(int));
-            for(int b=0;b<pos_size;b++)
+            for(b=0;b<pos_size;b++)
                 label_vocab[a].vocab_pos[b] = -1;
         }
     }
@@ -117,6 +118,8 @@ void AddEntityToLabel(int vocab_index) {
     if(label_vocab[b].num+2>label_vocab[b].max_pos_size){
         label_vocab[b].max_pos_size += 10;
         label_vocab[b].vocab_pos = (int *)realloc(label_vocab[b].vocab_pos, label_vocab[b].max_pos_size * sizeof(int));
+        for(a = label_vocab[b].num;a < label_vocab[b].max_pos_size;a++)
+            label_vocab[b].vocab_pos[a] = -1;
     }
 }
 
@@ -186,23 +189,27 @@ void FindNearest(int top_n, float *vec){
 }
 
 int SearchVocab(char *item, int is_entity){
-    int a, b, c;
+    int a, b=-1, c,i;
     if(is_entity){
         b = SearchLabelVocab(item);
         if(b==-1) return -1;
-        if(label_vocab[b].num>0){
-            printf("please input the entity number:\n");
-            for(int i=0;i<label_vocab[b].num;i++){
+        if(label_vocab[b].num>1){
+            printf("Entity candidates :\n");
+            for(i=0;i<label_vocab[b].num;i++){
                 a =label_vocab[b].vocab_pos[i];
                 if(a==-1)
                     continue;
                 printf("%d : %s\n",i, &entity.vocab[a*max_w]);
             }
-        }
+        
+        printf("please input the entity number:");
         scanf("%d",&c);
         getchar();
-        
         b =label_vocab[b].vocab_pos[c];
+        }
+        else if(label_vocab[b].num>0)
+            b=label_vocab[b].vocab_pos[0];
+        
     }
     else{
         for (b = 0; b < word.vocab_size; b++) if (!strcmp(&word.vocab[b * max_w], item)) break;
@@ -279,7 +286,7 @@ int main(int argc, char **argv) {
     int i, word_index = -1, entity_index = -1;
     long long a;
     float word_vec[max_size], entity_vec[max_size];
-    int has_word = 0, has_entity = 0;
+    int has_word = 0, has_entity = 0,b;
     if (argc < 2) {
         printf("\t-read_word_vector <file>\n");
         printf("\t\tUse <file> to read the resulting word vectors\n");
@@ -310,13 +317,13 @@ int main(int argc, char **argv) {
         sprintf(entity.label, "Entity");
         printf("loading entity vectors...\n");
         label_vocab_hash = (int *)calloc(label_vocab_hash_size, sizeof(int));
-        for(int a=0;a<label_vocab_hash_size;a++) label_vocab_hash[a] = -1;
+        for(a=0;a<label_vocab_hash_size;a++) label_vocab_hash[a] = -1;
         label_vocab = (struct set *)calloc(label_vocab_size, sizeof(struct set));
-        for(int a=0;a<label_vocab_size;a++){
+        for(a=0;a<label_vocab_size;a++){
             label_vocab[a].num = 0;
             label_vocab[a].max_pos_size = pos_size;
             label_vocab[a].vocab_pos = (int *)calloc(pos_size, sizeof(int));
-            for(int b=0;b<pos_size;b++)
+            for(b=0;b<pos_size;b++)
                 label_vocab[a].vocab_pos[b] = -1;
         }
         label_vocab_index = 0;
@@ -365,7 +372,7 @@ int main(int argc, char **argv) {
         }
         if(entity_index!=-1){
             for (a = 0; a < size; a++) entity_vec[a] = 0;
-            printf("\nEntity: %s  Position in vocabulary: %d\n", &entity.vocab[entity_index*max_w], entity_index);
+            printf("\nEntity: %s  Position in vocabulary: %d\n", &entity.vocab[entity_index * max_w], entity_index);
             for (a = 0; a < size; a++) entity_vec[a] += entity.M[a + entity_index * size];
             FindNearest(N, entity_vec);
         }
