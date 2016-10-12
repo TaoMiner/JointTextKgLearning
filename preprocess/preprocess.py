@@ -14,9 +14,9 @@ para_p = r'={2,}'
 
 ent_half_window = 10
 
-file_input = 'wiki_sample'
-corpus = 'train_text_sample_test'
-anchors = 'train_anchors_sample_test'
+file_input = './data/wiki2016/enwiki-abstract.dat'
+corpus = './data/wiki2016/train_text_ab'
+anchors = './data/wiki2016/train_anchors_ab'
 
 def toWord(anchor_text, ent_dic):
     items = re.split(anchor_split_p, re.search(anchor_text_p, anchor_text).group())
