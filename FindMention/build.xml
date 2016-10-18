@@ -5,7 +5,6 @@
               directory with the processing instruction <?eclipse.ant.import?>
               as the first entry and export the buildfile again. --><project basedir="." default="build" name="NED">
     <property environment="env"/>
-    <property name="debug" value="true"/>
     <property name="debuglevel" value="source,lines,vars"/>
     <property name="target" value="1.8"/>
     <property name="source" value="1.8"/>
@@ -48,10 +47,11 @@
         <property name="build.compiler" value="org.eclipse.jdt.core.JDTCompilerAdapter"/>
         <antcall target="build"/>
     </target>
-    <target name="EntPreProcess">
-        <java classname="EntIndex.EntPreProcess" failonerror="true" fork="yes">
+    <target name="preprocess">
+        <java classname="preprocess" failonerror="true" fork="yes">
             <jvmarg line="-Xmx20480m"/>
             <classpath refid="NED.classpath"/>
+        	<arg line="-label_file -doc_file -save_path " />
         </java>
     </target>
     <target name="IndexBuilder">
@@ -60,9 +60,11 @@
             <classpath refid="NED.classpath"/>
         </java>
     </target>
-    <target name="test">
-        <java classname="test.test" failonerror="true" fork="yes">
+    <target name="count">
+        <java classname="util.MentionCounter" failonerror="true" fork="yes">
+        	<jvmarg line="-Xmx20480m"/>
             <classpath refid="NED.classpath"/>
+        	<arg line="-label_file -doc_file -save_path " />
         </java>
     </target>
 </project>

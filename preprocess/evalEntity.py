@@ -1,0 +1,136 @@
+import numpy as np
+import regex as re
+import codecs
+import struct
+import rank_metrics as rm
+import pdb
+
+eval_file = 'relatedness.sample'
+entity_dic_file = 'enwiki-ID.dat'
+entity_vec_file = 'vectors_word10.dat'
+log_file = ''
+
+p_struct_fmt = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+
+ent_id_dic = {}
+id_ent_dic = {}
+ent_vec = {}
+eval_query = {}
+relatedness_pair_num = 0
+vocab_size = 0
+layer_size = 0
+
+def loadEntityDic():
+    with codecs.open(entity_dic_file, 'r', encoding='UTF-8') as fin_id:
+        for line in fin_id:
+            ents = re.split(r'\t\t', line)
+            if len(ents)==2 and ents[0]!="" and ents[0]!=" ":
+                t_ent_label = ents[0].lower()
+                t_ent_id = int(ents[1].strip("\n"))
+                ent_id_dic[t_ent_label] = t_ent_id
+                id_ent_dic[t_ent_id] = t_ent_label
+        print("successfully load %d entities from wiki entity!" % len(ent_id_dic))
+
+def loadEvalFile():
+    with codecs.open(eval_file, 'r', encoding='UTF-8') as fin_eval:
+        global relatedness_pair_num
+        for line in fin_eval:
+            tmp_q = re.split(r'\t', line)
+            if len(tmp_q)==6:
+                relatedness_pair_num += 1
+                e_id = int(tmp_q[2])
+                c_id = int(tmp_q[4])
+                label = int(tmp_q[5].strip("\n"))
+                if e_id in eval_query and c_id not in eval_query[e_id]:
+                    eval_query[e_id][c_id] = label
+                else:
+                    eval_query[e_id] = {c_id:label}
+        print("successfully load %d entities with %d candidate entities on average from relatedness file!" % (len(eval_query), relatedness_pair_num/len(eval_query)))
+
+def readEntityId(fin):
+    char_set = []
+    while True:
+        ch = struct.unpack('c',fin.read(1))[0]
+        if ch=='\t':
+            break
+        char_set.append(ch)
+    label = "".join(char_set).decode('ISO-8859-1')
+    if label in ent_id_dic:
+        return ent_id_dic[label]
+    else:
+        readEntityVector(fin)
+        return None
+
+def readEntityVector(fin):
+    global layer_size
+    vec = np.array(struct.unpack(p_struct_fmt, fin.read(4*layer_size)), dtype=float)
+    fin.read(1)
+    return vec
+
+def readFileHead(fin):
+    char_set = []
+    vocab_size = 0
+    layer_size = 0
+    while True:
+        ch = fin.read(1)
+        if ch==' ':
+            vocab_size = (int)("".join(char_set))
+            del char_set[:]
+            continue
+        if ch=='\n':
+            layer_size = (int)("".join(char_set))
+            break
+        char_set.append(ch)
+    return [vocab_size, layer_size]
+
+def loadEntityVec():
+    with codecs.open(entity_vec_file, 'rb') as fin_vec:
+        global vocab_size, layer_size
+        [vocab_size, layer_size] = readFileHead(fin_vec)
+        for i in xrange(vocab_size):
+            tmp_id = readEntityId(fin_vec)
+            if tmp_id:
+                ent_vec[tmp_id] = readEntityVector(fin_vec)
+        print("successfully load %d entities vectors with %d dimensions!" % (vocab_size, layer_size))
+
+
+loadEntityDic()
+loadEntityVec()
+loadEvalFile()
+ent_skip_count = 0
+can_count = 0
+ndcg0_sum = 0
+ndcg1_sum = 0
+map_sum = 0
+for ent in eval_query:
+    sim = []
+    if ent not in ent_vec:
+        ent_skip_count += 1
+    else:
+        tmp_can_count = 0
+        for can in eval_query[ent]:
+            if can in ent_vec:
+                tmp_can_count += 1
+                a = ent_vec[ent]*ent_vec[can]
+                sim.append((can, a.sum()))
+        if tmp_can_count > 1:
+            sim_rank = sorted(sim, key=lambda sim : sim[1], reverse=True)
+            r = []
+            for item in sim_rank:
+                r.append(eval_query[ent][item[0]])
+            tmp_n0 = rm.ndcg_at_k(r, len(r), 0)
+            tmp_n1 = rm.ndcg_at_k(r, len(r), 1)
+            tmp_ap = rm.average_precision(r)
+            ndcg0_sum += tmp_n0
+            ndcg1_sum += tmp_n1
+            map_sum += tmp_ap
+            can_count += tmp_can_count
+        else:
+            ent_skip_count +=1
+act_ent_count = len(eval_query)-ent_skip_count
+
+with codecs.open(log_file, 'w', encoding='UTF-8') as fout_log:
+    fout_log.write("**********************************\n")
+    fout_log.write("eval %d(%d) entities with %d(%d) candidate entities for %s!\n" % (act_ent_count,len(eval_query),can_count/act_ent_count,relatedness_pair_num/len(eval_query), entity_vec_file))
+    fout_log.write("ndcg0 : %f, ndcg1 : %f, map : %f\n" % (float(ndcg0_sum/act_ent_count),float(ndcg1_sum/act_ent_count),float(map_sum/act_ent_count)))
+    fout_log.write("**********************************\n")

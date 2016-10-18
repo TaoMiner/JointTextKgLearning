@@ -309,15 +309,15 @@ void LearnVocabFromTrainFile() {
         for(b=0;b<words_in_mention;b++){
             if(anchor_pos==-1){
                 tmp_item_len = strlen(item);
-                strncpy(tmp_item, item, tmp_item_len);
+                memcpy(tmp_item, item, tmp_item_len);
             }
             else if(b+1<words_in_mention){
                 tmp_item_len = word_begin[b+1]-1-word_begin[b];
-                strncpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
+                memcpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
             }
             else{
                 tmp_item_len = strlen(&item[anchor_pos+word_begin[b]]);
-                strncpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
+                memcpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
             }
             tmp_item[tmp_item_len] = 0;
             p_model->train_items++;
@@ -446,15 +446,15 @@ void *TrainTextModelThread(void *id) {
                 for(b=0;b<words_in_mention;b++){
                     if(anchor_pos==-1){
                         tmp_item_len = strlen(item);
-                        strncpy(tmp_item, item, tmp_item_len);
+                        memcpy(tmp_item, item, tmp_item_len);
                     }
                     else if(b+1<words_in_mention){
                         tmp_item_len = word_begin[b+1]-1-word_begin[b];
-                        strncpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
+                        memcpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
                     }
                     else{
                         tmp_item_len = strlen(&item[anchor_pos+word_begin[b]]);
-                        strncpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
+                        memcpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
                     }
                     tmp_item[tmp_item_len] = 0;
                     word = SearchVocab(tmp_item);
@@ -681,7 +681,7 @@ void *TrainJointModelThread(void *id) {
                         tmp_item_len = strlen(item);
                     else
                         tmp_item_len = anchor_pos-1;
-                    strncpy(tmp_item, item, tmp_item_len);
+                    memcpy(tmp_item, &item, tmp_item_len);
                     tmp_item[tmp_item_len] = 0;
                     anchors[anchor_count].entity_index = SearchKgVocab(tmp_item);
                     if(anchors[anchor_count].entity_index==-1) continue;
@@ -695,15 +695,15 @@ void *TrainJointModelThread(void *id) {
                 for(b=0;b<words_in_mention;b++){
                     if(anchor_pos==-1){
                         tmp_item_len = strlen(item);
-                        strncpy(tmp_item, item, tmp_item_len);
+                        memcpy(tmp_item, item, tmp_item_len);
                     }
                     else if(b+1<words_in_mention){
                         tmp_item_len = word_begin[b+1]-1-word_begin[b];
-                        strncpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
+                        memcpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
                     }
                     else{
                         tmp_item_len = strlen(&item[anchor_pos+word_begin[b]]);
-                        strncpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
+                        memcpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
                     }
                     tmp_item[tmp_item_len] = 0;
                     word = SearchTextVocab(tmp_item);
@@ -823,6 +823,7 @@ void *TrainJointModelThread(void *id) {
     fclose(fi);
     free(neu1);
     free(neu1e);
+    free(anchors);
     pthread_exit(NULL);
 }
 

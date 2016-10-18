@@ -15,6 +15,7 @@ import java.util.concurrent.LinkedBlockingDeque;
  */
 public class AhoCorasickDoubleArrayTrie<V> implements Serializable
 {
+	protected boolean isMatchWords = false;
     /**
      * check array of the Double Array Trie structure
      */
@@ -277,6 +278,10 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
         }
         return newCurrentState;
     }
+    
+    public void setMatchUnit(boolean isMatchWords){
+    	this.isMatchWords = isMatchWords;
+    }
 
     /**
      * store output
@@ -293,8 +298,10 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
             for (int hit : hitArray)
             {
             	//remove the hit not start or end with a white space
-            	if(position - l[hit]-1>=0 && text.charAt(position - l[hit]-1)!=' ') continue;
-            	if(position<text.length() && text.charAt(position)!=' ') continue;
+            	if(isMatchWords){
+	            	if(position - l[hit]-1>=0 && text.charAt(position - l[hit]-1)!=' ') continue;
+	            	if(position<text.length() && text.charAt(position)!=' ') continue;
+            	}
         		collectedEmits.add(new Hit<V>(position - l[hit], position, v[hit]));
             }
         }
@@ -661,7 +668,7 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
             {
                 addKeyword(keyword, i++);
                 if(i%100000==0)
-                	System.out.println("trie："+i);
+                	System.out.printf("trie：%d\n", i);
             }
         }
 
@@ -781,7 +788,7 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
 
             count += siblings.size();
             if(count%100000==0)
-            	System.out.println("double trie："+count);
+            	System.out.printf("double trie：%d\n",count);
             outer:
             // 此循环体的目标是找出满足base[begin + a1...an]  == 0的n个空闲空间,a1...an是siblings中的n个节点
             while (true)
