@@ -18,14 +18,14 @@
 #include <math.h>
 #include <pthread.h>
 
-#define MAX_STRING 100
+#define MAX_STRING 400          //>longest entity + longest mention + 1
 #define EXP_TABLE_SIZE 1000
 #define MAX_EXP 6
 #define MAX_SENTENCE_LENGTH 1000
 #define TEXT_MODEL "Text Model"
 #define KG_MODEL "KG Model"
 #define JOINT_MODEL "Joint Model"
-#define MAX_MENTION 20
+#define MAX_MENTION 30
 
 typedef float real;                    // Precision of float numbers
 
@@ -61,7 +61,7 @@ struct model_var2 {
 }joint_model;
 
 const int vocab_hash_size = 30000000;  // Maximum items in the vocabulary
-int local_iter=0, binary = 0, debug_mode = 2, window = 5, min_count = 0, num_threads = 12, min_reduce = 1, cw = 0;
+int local_iter=0, binary = 0, debug_mode = 2, window = 5, min_count = 0, num_threads = 12, min_reduce = 1, cw = 0, sg = 1;
 long long layer1_size = 100;
 long long iter = 5;
 real alpha = 0.025, sample = 1e-3;
@@ -106,46 +106,91 @@ int SplitMention(int *split_pos, char *mention) {
             if(mention[b]!=0){
                 split_pos[a] = b;
                 a++;
+                if(a>=MAX_MENTION){
+                    printf("error! anchor's mention length is larger than %d!", MAX_MENTION);
+                    break;
+                }
             }
     }
     return a;
 }
 
+//return negative if that's not anchor, the int indicates how many words should be offset.
+//return the word's start pos
+int ReadAnchor(char *item, FILE *fin){
+    int a = 0, ch, is_anchor = 0, prev_brace = 0, post_brace = 0, word_num=0, anchor_pos=0;
+    while (!feof(fin)) {
+        ch = fgetc(fin);
+        if( prev_brace==0 ){
+            if(ch == '['){
+                prev_brace = 1;
+                continue;
+            }
+            else{
+                a=0;
+                is_anchor --;
+                break;
+            }
+        }
+        is_anchor--;
+        if(ch == ' ') word_num ++;
+        if (ch == '\n' || word_num>MAX_MENTION) {
+            a = 0;
+            break;
+        }
+        if (ch == '|')
+            anchor_pos = a+1;
+        if ( (ch == ']') && (post_brace==0)){
+            post_brace = 1;
+            continue;
+        }
+        if(post_brace==1){
+            if(ch == ']')
+                is_anchor = anchor_pos;
+            break;
+        }
+        item[a] = ch;
+        a++;
+        if (a >= MAX_STRING - 1) a--;
+    }
+    item[a] = 0;
+    return is_anchor;
+}
+
 // Reads a single word or anchor from a file, assuming space + tab + EOL to be word boundaries, [[anchor]]
 //return -1 if read a word, 0 if [[anchor]], '|''s pos(1-length) if [[entity|mention]]
 int ReadItem(char *item, FILE *fin) {
-    int a = 0, ch;
-    int is_anchor = -1;
+    int a = 0, ch, is_anchor=-1;
+
     while (!feof(fin)) {
         ch = fgetc(fin);
         if (ch == 13) continue;
-        if ((ch == ' ') || (ch == '\t') || (ch == '\n') || (ch == ']') || (ch == '[') || (ch == '|')) {
-            if (is_anchor>=0){
-                if (ch == ']') {fgetc(fin);break;}
-                if (ch == '|') is_anchor = a+1;
+        if ((ch == ' ') || (ch == '\t') || (ch == '\n') || (ch == ']') || (ch == '[')) {
+            if (a > 0) {
+                if (ch == '\n') ungetc(ch, fin);
+                if (ch == '[') ungetc(ch, fin);
+                break;
             }
-            else {
-                if (ch == '[' && a==0) {
-                    is_anchor = 0;
-                    fgetc(fin);
+            if (ch == '\n') {
+                strcpy(item, (char *)"</s>");
+                return -1;
+            }
+            else if (ch == '['){
+                is_anchor = ReadAnchor(item, fin);
+                if (is_anchor<0){
+                    fseek(fin, is_anchor, SEEK_CUR);
                     continue;
                 }
-                if (a > 0) {
-                    if (ch == '\n') ungetc(ch, fin);
-                    break;
-                }
-                if (ch == '\n') {
-                    strcpy(item, (char *)"</s>");
-                    return is_anchor;
-                } else continue;
+                else return is_anchor;
             }
+            else continue;
         }
         item[a] = ch;
         a++;
         if (a >= MAX_STRING - 1) a--;   // Truncate too long words
     }
     item[a] = 0;
-    return is_anchor;
+    return -1;
 }
 
 void ReadEntity(char *item, FILE *fin) {
@@ -479,6 +524,7 @@ void *TrainTextModelThread(void *id) {
             text_model.item_count_actual += word_count - last_word_count;
             break;
         }
+        
         word = sen[sentence_position];
         if (word == -1) continue;
         for (c = 0; c < layer1_size; c++) neu1[c] = 0;
@@ -677,18 +723,8 @@ void *TrainJointModelThread(void *id) {
                 anchor_pos = ReadItem(item, fi);
                 if (feof(fi)) break;
                 if (anchor_pos >= 0){
-                    if (anchor_pos==0)
-                        tmp_item_len = strlen(item);
-                    else
-                        tmp_item_len = anchor_pos-1;
-                    strncpy(tmp_item, item, tmp_item_len);
-                    tmp_item[tmp_item_len] = 0;
-                    anchors[anchor_count].entity_index = SearchKgVocab(tmp_item);
-                    if(anchors[anchor_count].entity_index==-1) continue;
                     words_in_mention = SplitMention(word_begin, &item[anchor_pos]);
-                    anchors[anchor_count].length = words_in_mention;
                     anchors[anchor_count].start_pos = sentence_length;
-                    anchor_count++;
                 }
                 else
                     words_in_mention = 1;
@@ -720,6 +756,19 @@ void *TrainJointModelThread(void *id) {
                     sentence_length++;
                     if (sentence_length >= MAX_SENTENCE_LENGTH) break;
                 }
+                if(anchor_pos>=0 && b >= words_in_mention-1){
+                    if (anchor_pos==0)
+                        tmp_item_len = strlen(item);
+                    else
+                        tmp_item_len = anchor_pos-1;
+                    strncpy(tmp_item, item, tmp_item_len);
+                    tmp_item[tmp_item_len] = 0;
+                    anchors[anchor_count].entity_index = SearchKgVocab(tmp_item);
+                    if(anchors[anchor_count].entity_index!=-1){
+                        anchors[anchor_count].length = sentence_length - anchors[anchor_count].start_pos;
+                        anchor_count++;
+                    }
+                }
                 if(word == 0 || sentence_length >= MAX_SENTENCE_LENGTH) break;
             }
             sentence_position = 0;
@@ -733,13 +782,13 @@ void *TrainJointModelThread(void *id) {
             sentence_length = 0;
             continue;
         }
-        for(anchor_position=0;anchor_position<anchor_count;anchor_position++){
-            for (c = 0; c < layer1_size; c++) neu1[c] = 0;
-            for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
-            next_random = next_random * (unsigned long long)25214903917 + 11;
-            b = next_random % window;
-            sentence_position = anchors[anchor_position].start_pos;
-            if(cw){
+        if(cw){
+            for(anchor_position=0;anchor_position<anchor_count;anchor_position++){
+                for (c = 0; c < layer1_size; c++) neu1[c] = 0;
+                for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
+                next_random = next_random * (unsigned long long)25214903917 + 11;
+                b = next_random % window;
+                sentence_position = anchors[anchor_position].start_pos;
                 word = anchors[anchor_position].entity_index;
                 if (word == -1) continue;
                 //train skip-gram
@@ -779,7 +828,14 @@ void *TrainJointModelThread(void *id) {
                         for (c = 0; c < layer1_size; c++) text_model.syn0[c + l1] += neu1e[c];
                     }
             }
-            else{
+        }
+        if(sg){
+            for(anchor_position=0;anchor_position<anchor_count;anchor_position++){
+                for (c = 0; c < layer1_size; c++) neu1[c] = 0;
+                for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
+                next_random = next_random * (unsigned long long)25214903917 + 11;
+                b = next_random % window;
+                sentence_position = anchors[anchor_position].start_pos;
                 l1 = anchors[anchor_position].entity_index * layer1_size;
                 //train skip-gram
                 for (a = b; a < window * 2 + 1 - b; a++)
@@ -821,6 +877,7 @@ void *TrainJointModelThread(void *id) {
         sentence_length = 0;
     }
     fclose(fi);
+    free(anchors);
     free(neu1);
     free(neu1e);
     pthread_exit(NULL);
@@ -915,6 +972,7 @@ void InitTextModel(){
 
 void InitKgModel(){
     p_model = &kg_model;
+    min_count = 0;
     InitModel();
 }
 
@@ -965,6 +1023,8 @@ int main(int argc, char **argv) {
         printf("\t\tNumber of negative examples; default is 5, common values are 3 - 10 (0 = not used)\n");
         printf("\t-cw <int>\n");
         printf("\t\talign word vector to entity; default is 0\n");
+        printf("\t-sg <int>\n");
+        printf("\t\talign entity vector to word; default is 1\n");
         printf("\t-threads <int>\n");
         printf("\t\tUse <int> threads (default 12)\n");
         printf("\t-iter <int>\n");
@@ -1000,6 +1060,7 @@ int main(int argc, char **argv) {
     if ((i = ArgPos((char *)"-output_path", argc, argv)) > 0) strcpy(output_path, argv[i + 1]);
     if ((i = ArgPos((char *)"-input_path", argc, argv)) > 0) strcpy(input_path, argv[i + 1]);
     if ((i = ArgPos((char *)"-cw", argc, argv)) > 0) cw = atoi(argv[i + 1]);
+    if ((i = ArgPos((char *)"-sg", argc, argv)) > 0) sg = atoi(argv[i + 1]);
     
     if(output_path[0]!=0){
         sprintf(text_model.output_file, "%svectors_word", output_path);
@@ -1030,18 +1091,14 @@ int main(int argc, char **argv) {
         local_iter++;
         printf("Start training the %d time... ", local_iter);
         TrainTextModel();
-        if(local_iter%1==0)
-            SaveWordVector(local_iter, ".tmp");
+        SaveWordVector(local_iter, ".tmp");
         TrainKgModel();
-        if(local_iter%1==0)
-            SaveEntityVector(local_iter, ".tmp");
+        SaveEntityVector(local_iter, ".tmp");
         TrainJointModel();
         printf("\niter %d success!\n", local_iter);
-        if(local_iter%1==0){
-            printf("saving results...\n");
-            SaveWordVector(local_iter, ".dat");
-            SaveEntityVector(local_iter, ".dat");
-        }
+        printf("saving results...\n");
+        SaveWordVector(local_iter, ".dat");
+        SaveEntityVector(local_iter, ".dat");
     }
     return 0;
 }
