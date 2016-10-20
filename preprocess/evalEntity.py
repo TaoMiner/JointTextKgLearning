@@ -5,10 +5,10 @@ import struct
 import rank_metrics as rm
 import pdb
 
-eval_file = 'relatedness.sample'
-entity_dic_file = 'enwiki-ID.dat'
-entity_vec_file = 'vectors_word10.dat'
-log_file = ''
+eval_file = '../data/test_relatedness.dat'
+entity_dic_file = '../data/wiki2016/enwiki-ID.dat'
+entity_vec_file = '../etc/wiki2016ab/vectors_entity1.dat'
+log_file = '../etc/log_entity'
 
 p_struct_fmt = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 
@@ -99,8 +99,9 @@ loadEntityVec()
 loadEvalFile()
 ent_skip_count = 0
 can_count = 0
-ndcg0_sum = 0
 ndcg1_sum = 0
+ndcg5_sum = 0
+ndcg10_sum = 0
 map_sum = 0
 for ent in eval_query:
     sim = []
@@ -118,19 +119,30 @@ for ent in eval_query:
             r = []
             for item in sim_rank:
                 r.append(eval_query[ent][item[0]])
-            tmp_n0 = rm.ndcg_at_k(r, len(r), 0)
-            tmp_n1 = rm.ndcg_at_k(r, len(r), 1)
+            if len(r) >1:
+                tmp_n1 = rm.ndcg_at_k(r, 1, 1)
+            else:
+                tmp_n1 = rm.ndcg_at_k(r, len(r), 1)
+            if len(r) >5:
+                tmp_n5 = rm.ndcg_at_k(r, 5, 1)
+            else:
+                tmp_n5 = rm.ndcg_at_k(r, len(r), 1)
+            if len(r) >10:
+                tmp_n10 = rm.ndcg_at_k(r, 10, 1)
+            else:
+                tmp_n10 = rm.ndcg_at_k(r, len(r), 1)
             tmp_ap = rm.average_precision(r)
-            ndcg0_sum += tmp_n0
             ndcg1_sum += tmp_n1
+            ndcg5_sum += tmp_n5
+            ndcg10_sum += tmp_n10
             map_sum += tmp_ap
             can_count += tmp_can_count
         else:
             ent_skip_count +=1
 act_ent_count = len(eval_query)-ent_skip_count
 
-with codecs.open(log_file, 'w', encoding='UTF-8') as fout_log:
+with codecs.open(log_file, 'a', encoding='UTF-8') as fout_log:
     fout_log.write("**********************************\n")
     fout_log.write("eval %d(%d) entities with %d(%d) candidate entities for %s!\n" % (act_ent_count,len(eval_query),can_count/act_ent_count,relatedness_pair_num/len(eval_query), entity_vec_file))
-    fout_log.write("ndcg0 : %f, ndcg1 : %f, map : %f\n" % (float(ndcg0_sum/act_ent_count),float(ndcg1_sum/act_ent_count),float(map_sum/act_ent_count)))
+    fout_log.write("ndcg1 : %f, ndcg5 : %f, ndcg10 : %f, map : %f\n" % (float(ndcg1_sum/act_ent_count),float(ndcg5_sum/act_ent_count),float(ndcg10_sum/act_ent_count),float(map_sum/act_ent_count)))
     fout_log.write("**********************************\n")
