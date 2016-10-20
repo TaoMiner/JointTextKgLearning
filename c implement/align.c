@@ -18,14 +18,14 @@
 #include <math.h>
 #include <pthread.h>
 
-#define MAX_STRING 400          //>longest entity + longest mention + 1
+#define MAX_STRING 1100          //>longest entity + longest mention + 1
 #define EXP_TABLE_SIZE 1000
 #define MAX_EXP 6
 #define MAX_SENTENCE_LENGTH 1000
 #define TEXT_MODEL "Text Model"
 #define KG_MODEL "KG Model"
 #define JOINT_MODEL "Joint Model"
-#define MAX_MENTION 30
+#define MAX_MENTION 135
 
 typedef float real;                    // Precision of float numbers
 
@@ -55,7 +55,7 @@ struct model_var {
 
 struct model_var2 {
     char train_file[MAX_STRING];
-    long long train_items, item_count_actual, file_size;
+    long long train_items, item_count_actual, file_size, anchor_count;
     real starting_alpha, alpha;
     char name[MAX_STRING];
 }joint_model;
@@ -63,7 +63,7 @@ struct model_var2 {
 const int vocab_hash_size = 30000000;  // Maximum items in the vocabulary
 int local_iter=0, binary = 0, debug_mode = 2, window = 5, min_count = 0, num_threads = 12, min_reduce = 1, cw = 0, sg = 1;
 long long layer1_size = 100;
-long long iter = 5;
+long long iter = 5, tmp_anchor_num = 0;
 real alpha = 0.025, sample = 1e-3;
 real *expTable;
 clock_t start;
@@ -107,7 +107,8 @@ int SplitMention(int *split_pos, char *mention) {
                 split_pos[a] = b;
                 a++;
                 if(a>=MAX_MENTION){
-                    printf("error! anchor's mention length is larger than %d!", MAX_MENTION);
+                    printf("error! anchor's mention length is larger than %d!\n", MAX_MENTION);
+                    printf("%s\n",mention);
                     break;
                 }
             }
@@ -151,7 +152,7 @@ int ReadAnchor(char *item, FILE *fin){
         }
         item[a] = ch;
         a++;
-        if (a >= MAX_STRING - 1) a--;
+        if (a >= MAX_STRING - 1){printf("error! too long string:\n %s\n",item); a--;break;}
     }
     item[a] = 0;
     return is_anchor;
@@ -161,7 +162,7 @@ int ReadAnchor(char *item, FILE *fin){
 //return -1 if read a word, 0 if [[anchor]], '|''s pos(1-length) if [[entity|mention]]
 int ReadItem(char *item, FILE *fin) {
     int a = 0, ch, is_anchor=-1;
-
+    
     while (!feof(fin)) {
         ch = fgetc(fin);
         if (ch == 13) continue;
@@ -348,6 +349,7 @@ void LearnVocabFromTrainFile() {
         if (feof(fin)) break;
         if (anchor_pos >= 0){
             words_in_mention = SplitMention(word_begin, &item[anchor_pos]);
+            tmp_anchor_num ++;
         }
         else
             words_in_mention = 1;
@@ -383,10 +385,7 @@ void LearnVocabFromTrainFile() {
         printf("%s Vocab size: %lld\n", p_model->name, p_model->vocab_size);
         printf("Items of %s in train file: %lld\n", p_model->name, p_model->train_items);
     }
-    if(!strcmp(TEXT_MODEL, p_model->name))
-        p_model->file_size = ftell(fin);
-    else
-        p_model->file_size = p_model->vocab[0].cn;
+    p_model->file_size = ftell(fin);
     fclose(fin);
 }
 
@@ -420,18 +419,14 @@ void ReadVocab() {
         printf("%s Vocab size: %lld\n", p_model->name, p_model->vocab_size);
         printf("Items of %s in train file: %lld\n", p_model->name, p_model->train_items);
     }
-    if(!strcmp(TEXT_MODEL, p_model->name)){
-        fin = fopen(p_model->train_file, "rb");
-        if (fin == NULL) {
-            printf("ERROR: training data file not found!\n");
-            exit(1);
-        }
-        fseek(fin, 0, SEEK_END);
-        p_model->file_size = ftell(fin);
-        fclose(fin);
+    fin = fopen(p_model->train_file, "rb");
+    if (fin == NULL) {
+        printf("ERROR: training data file not found!\n");
+        exit(1);
     }
-    else
-        p_model->file_size = p_model->vocab[0].cn;
+    fseek(fin, 0, SEEK_END);
+    p_model->file_size = ftell(fin);
+    fclose(fin);
 }
 
 void InitNet() {
@@ -502,7 +497,7 @@ void *TrainTextModelThread(void *id) {
                         strncpy(tmp_item, &item[anchor_pos+word_begin[b]], sizeof(char)*tmp_item_len);
                     }
                     tmp_item[tmp_item_len] = 0;
-                    word = SearchVocab(tmp_item);
+                    word = SearchTextVocab(tmp_item);
                     if (word == -1) continue;
                     word_count++;
                     if (word == 0) break;
@@ -578,27 +573,27 @@ void *TrainTextModelThread(void *id) {
 }
 
 void *TrainKgModelThread(void *id) {
-    long long d, entity, example, sentence_length = 0, sentence_position = 0;
+    long long d, entity, head_entity = -1, line_entity_count = 0, is_read_head = 1, sentence_length = 0, sentence_position = 0;
     long long entity_count = 0, last_entity_count = 0, sen[MAX_SENTENCE_LENGTH + 1];
     long long l1, l2, c, target, label;
     unsigned long long next_random = (long long)id;
-    int skip_line = 0;
-    long long start_line = 0;
-    ssize_t read;
-    size_t len;
-    char * line = NULL;
+    char tmp_item[MAX_STRING];
     real f, g;
     clock_t now;
     real *neu1 = (real *)calloc(layer1_size, sizeof(real));
     real *neu1e = (real *)calloc(layer1_size, sizeof(real));
     FILE *fi = fopen(kg_model.train_file, "rb");
-    char tmp_item[MAX_STRING];
-    start_line = kg_model.file_size / (long long)num_threads * (long long)id;
-    while(skip_line < start_line){
-        skip_line++;
-        if((read = getline(&line, &len, fi)) == -1)
-            break;
+    fseek(fi, kg_model.file_size / (long long)num_threads * (long long)id, SEEK_SET);
+    
+    while(1){
+        ReadEntity(tmp_item, fi);
+        entity = SearchKgVocab(tmp_item);
+        entity_count ++;
+        if (feof(fi) || (entity==0)) break;
     }
+    head_entity = -1;
+    is_read_head = 1;
+    line_entity_count = 0;
     while (1) {
         if (entity_count - last_entity_count > 10000) {
             kg_model.item_count_actual += entity_count - last_entity_count;
@@ -606,64 +601,64 @@ void *TrainKgModelThread(void *id) {
             if ((debug_mode > 1)) {
                 now=clock();
                 printf("%c%s: Alpha: %f  Progress: %.2f%%  entities/thread/sec: %.2fk  ", 13, kg_model.name, kg_model.alpha,
-                       kg_model.item_count_actual / (real)(kg_model.file_size + 1) * 100,
+                       kg_model.item_count_actual / (real)(kg_model.train_items + 1) * 100,
                        kg_model.item_count_actual / ((real)(now - start + 1) / (real)CLOCKS_PER_SEC * 1000));
                 fflush(stdout);
             }
-            kg_model.alpha = kg_model.starting_alpha * (1 - kg_model.item_count_actual / (real)(iter * kg_model.file_size + 1));
+            kg_model.alpha = kg_model.starting_alpha * (1 - kg_model.item_count_actual / (real)(iter * kg_model.train_items + 1));
             if (kg_model.alpha < kg_model.starting_alpha * 0.0001) kg_model.alpha = kg_model.starting_alpha * 0.0001;
         }
         if (sentence_length == 0) {
             while(1){
-                while (1) {
-                    if (sentence_length == 0)
-                        entity_count ++;
-                    ReadEntity(tmp_item, fi);
-                    entity = SearchVocab(tmp_item);
-                    if (feof(fi)) break;
-                    if (entity == -1){
-                        if(0==sentence_length){
-                            getline(&line, &len, fi);
-                            break;
-                        }
-                        else
-                            continue;
-                    }
-                    if (entity == 0) break;
-                    sen[sentence_length] = entity;
-                    sentence_length++;
-                    if (sentence_length >= MAX_SENTENCE_LENGTH) {getline(&line, &len, fi);break;}
+                ReadEntity(tmp_item, fi);
+                if (feof(fi)) break;
+                entity_count ++;
+                line_entity_count++;
+                if(is_read_head==1){
+                    head_entity = SearchKgVocab(tmp_item);
+                    if(head_entity==0) line_entity_count = 0;
+                    if(head_entity>0 && line_entity_count==1) is_read_head=0;
+                    else head_entity = -1;
+                    continue;
                 }
-                if( feof(fi) || sentence_length>=2)
-                    break;
-                else
-                    sentence_length = 0;
+                else if(head_entity!=-1){
+                    entity = SearchKgVocab(tmp_item);
+                    if (entity == -1) continue;
+                    if (entity == 0) {
+                        line_entity_count = 0;
+                        is_read_head=1;
+                        break;
+                    }
+                }
+                else {is_read_head=1;continue;}
+                sen[sentence_length] = entity;
+                sentence_length++;
+                if (sentence_length >= MAX_SENTENCE_LENGTH) break;
             }
-            sentence_position = 1;
+            sentence_position = 0;
         }
-        if (feof(fi) || (entity_count > kg_model.file_size / num_threads)) {
+        if (feof(fi) || (entity_count > kg_model.train_items / num_threads)) {
             kg_model.item_count_actual += entity_count - last_entity_count;
             break;
         }
-        entity = sen[0];
         for (c = 0; c < layer1_size; c++) neu1[c] = 0;
         for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
         //train skip-gram
         for (; sentence_position<sentence_length; sentence_position++){
-            example = sen[sentence_position];
-            if (example == -1) continue;
-            l1 = example * layer1_size;
+            entity = sen[sentence_position];
+            if (entity == -1) continue;
+            l1 = entity * layer1_size;
             for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
             // NEGATIVE SAMPLING
             if (negative > 0) for (d = 0; d < negative + 1; d++) {
                 if (d == 0) {
-                    target = entity;
+                    target = head_entity;
                     label = 1;
                 } else {
                     next_random = next_random * (unsigned long long)25214903917 + 11;
                     target = kg_model.table[(next_random >> 16) % table_size];
                     if (target == 0) target = next_random % (kg_model.vocab_size - 1) + 1;
-                    if (target == entity) continue;
+                    if (target == head_entity) continue;
                     label = 0;
                 }
                 l2 = target * layer1_size;
@@ -757,16 +752,19 @@ void *TrainJointModelThread(void *id) {
                     if (sentence_length >= MAX_SENTENCE_LENGTH) break;
                 }
                 if(anchor_pos>=0 && b >= words_in_mention-1){
-                    if (anchor_pos==0)
-                        tmp_item_len = strlen(item);
-                    else
-                        tmp_item_len = anchor_pos-1;
-                    strncpy(tmp_item, item, tmp_item_len);
-                    tmp_item[tmp_item_len] = 0;
-                    anchors[anchor_count].entity_index = SearchKgVocab(tmp_item);
-                    if(anchors[anchor_count].entity_index!=-1){
-                        anchors[anchor_count].length = sentence_length - anchors[anchor_count].start_pos;
-                        anchor_count++;
+                    anchors[anchor_count].length = sentence_length - anchors[anchor_count].start_pos;
+                    if(anchors[anchor_count].length>0){
+                        if (anchor_pos==0)
+                            tmp_item_len = strlen(item);
+                        else
+                            tmp_item_len = anchor_pos-1;
+                        strncpy(tmp_item, item, tmp_item_len);
+                        tmp_item[tmp_item_len] = 0;
+                        anchors[anchor_count].entity_index = SearchKgVocab(tmp_item);
+                        if(anchors[anchor_count].entity_index!=-1){
+                            anchor_count++;
+                            if(anchor_count >= MAX_SENTENCE_LENGTH) anchor_count--;
+                        }
                     }
                 }
                 if(word == 0 || sentence_length >= MAX_SENTENCE_LENGTH) break;
@@ -894,6 +892,7 @@ void TrainTextModel(){
     text_model.starting_alpha = text_model.alpha;
     for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainTextModelThread, (void *)a);
     for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
+    p_model = NULL;
 }
 
 void TrainKgModel(){
@@ -907,6 +906,7 @@ void TrainKgModel(){
     kg_model.starting_alpha = kg_model.alpha;
     for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainKgModelThread, (void *)a);
     for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
+    p_model = NULL;
 }
 
 void TrainJointModel() {
@@ -950,7 +950,10 @@ void SaveEntityVector(int id, char *postfix){
 }
 
 void InitModel(){
-    p_model->vocab_max_size = 2000000;
+    if(!strcmp(TEXT_MODEL, p_model->name))
+        p_model->vocab_max_size = 2500000;      //vocab word size is 2.7m
+    else
+        p_model->vocab_max_size = 5000000;      //vocab entity size is 5.13m
     p_model->vocab_size = 0;
     p_model->train_items = 0;
     p_model->item_count_actual = 0;
@@ -968,12 +971,14 @@ void InitModel(){
 void InitTextModel(){
     p_model = &text_model;
     InitModel();
+    p_model = NULL;
 }
 
 void InitKgModel(){
     p_model = &kg_model;
-    min_count = 0;
+    min_count = 1;
     InitModel();
+    p_model = NULL;
 }
 
 void InitJointModel(){
@@ -981,6 +986,8 @@ void InitJointModel(){
     joint_model.train_items = text_model.train_items;
     joint_model.item_count_actual = 0;
     joint_model.alpha = alpha;
+    joint_model.anchor_count = tmp_anchor_num;
+    printf("Total anchors in train file: %lld\n", joint_model.anchor_count);
 }
 
 
@@ -1091,14 +1098,14 @@ int main(int argc, char **argv) {
         local_iter++;
         printf("Start training the %d time... ", local_iter);
         TrainTextModel();
-        SaveWordVector(local_iter, ".tmp");
         TrainKgModel();
-        SaveEntityVector(local_iter, ".tmp");
         TrainJointModel();
         printf("\niter %d success!\n", local_iter);
-        printf("saving results...\n");
-        SaveWordVector(local_iter, ".dat");
-        SaveEntityVector(local_iter, ".dat");
+        if(local_iter%1==0){
+            printf("saving results...\n");
+            SaveWordVector(local_iter, ".dat");
+            SaveEntityVector(local_iter, ".dat");
+        }
     }
     return 0;
 }
