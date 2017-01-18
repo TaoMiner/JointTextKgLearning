@@ -67,7 +67,7 @@ long long iter = 5, tmp_anchor_num = 0;
 real alpha = 0.025, sample = 1e-3;
 real *expTable;
 clock_t start;
-char output_path[MAX_STRING], input_path[MAX_STRING];
+char save_vocab_path[MAX_STRING], read_vocab_path[MAX_STRING], output_path[MAX_STRING];
 int negative = 5;
 const int table_size = 1e8;
 const char save_interval = '\t';
@@ -780,6 +780,53 @@ void *TrainJointModelThread(void *id) {
             sentence_length = 0;
             continue;
         }
+        if(sg){
+            for(anchor_position=0;anchor_position<anchor_count;anchor_position++){
+                for (c = 0; c < layer1_size; c++) neu1[c] = 0;
+                for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
+                next_random = next_random * (unsigned long long)25214903917 + 11;
+                b = next_random % window;
+                sentence_position = anchors[anchor_position].start_pos;
+                l1 = anchors[anchor_position].entity_index * layer1_size;
+                //train skip-gram
+                for (a = b; a < window * 2 + 1 - b; a++)
+                    if(a == window)
+                        sentence_position = anchors[anchor_position].start_pos + anchors[anchor_position].length-1;
+                    else {
+                        c = sentence_position - window + a;
+                        if (c < 0) continue;
+                        if (c >= sentence_length) continue;
+                        last_word = sen[c];
+                        if (last_word == -1) continue;
+                        for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
+                        // NEGATIVE SAMPLING
+                        if (negative > 0) for (d = 0; d < negative + 1; d++) {
+                            if (d == 0) {
+                                target = last_word;
+                                label = 1;
+                            } else {
+                                next_random = next_random * (unsigned long long)25214903917 + 11;
+                                target = text_model.table[(next_random >> 16) % table_size];
+                                if (target == 0) target = next_random % (text_model.vocab_size - 1) + 1;
+                                if (target == last_word) continue;
+                                label = 0;
+                            }
+                            l2 = target * layer1_size;
+                            f = 0;
+                            for (c = 0; c < layer1_size; c++) f += kg_model.syn0[c + l1] * text_model.syn1neg[c + l2];
+                            if (f > MAX_EXP) g = (label - 1) * joint_model.alpha;
+                            else if (f < -MAX_EXP) g = (label - 0) * joint_model.alpha;
+                            else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * joint_model.alpha;
+                            for (c = 0; c < layer1_size; c++) neu1e[c] += g * text_model.syn1neg[c + l2];
+                            for (c = 0; c < layer1_size; c++) text_model.syn1neg[c + l2] += g * kg_model.syn0[c + l1];
+                        }
+                        // Learn weights input -> hidden
+                        for (c = 0; c < layer1_size; c++) kg_model.syn0[c + l1] += neu1e[c];
+                    }
+            }
+        }// end of sg
+
+
         if(cw){
             for(anchor_position=0;anchor_position<anchor_count;anchor_position++){
                 for (c = 0; c < layer1_size; c++) neu1[c] = 0;
@@ -826,52 +873,8 @@ void *TrainJointModelThread(void *id) {
                         for (c = 0; c < layer1_size; c++) text_model.syn0[c + l1] += neu1e[c];
                     }
             }
-        }
-        if(sg){
-            for(anchor_position=0;anchor_position<anchor_count;anchor_position++){
-                for (c = 0; c < layer1_size; c++) neu1[c] = 0;
-                for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
-                next_random = next_random * (unsigned long long)25214903917 + 11;
-                b = next_random % window;
-                sentence_position = anchors[anchor_position].start_pos;
-                l1 = anchors[anchor_position].entity_index * layer1_size;
-                //train skip-gram
-                for (a = b; a < window * 2 + 1 - b; a++)
-                    if(a == window)
-                        sentence_position = anchors[anchor_position].start_pos + anchors[anchor_position].length-1;
-                    else {
-                        c = sentence_position - window + a;
-                        if (c < 0) continue;
-                        if (c >= sentence_length) continue;
-                        last_word = sen[c];
-                        if (last_word == -1) continue;
-                        for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
-                        // NEGATIVE SAMPLING
-                        if (negative > 0) for (d = 0; d < negative + 1; d++) {
-                            if (d == 0) {
-                                target = last_word;
-                                label = 1;
-                            } else {
-                                next_random = next_random * (unsigned long long)25214903917 + 11;
-                                target = text_model.table[(next_random >> 16) % table_size];
-                                if (target == 0) target = next_random % (text_model.vocab_size - 1) + 1;
-                                if (target == last_word) continue;
-                                label = 0;
-                            }
-                            l2 = target * layer1_size;
-                            f = 0;
-                            for (c = 0; c < layer1_size; c++) f += kg_model.syn0[c + l1] * text_model.syn1neg[c + l2];
-                            if (f > MAX_EXP) g = (label - 1) * joint_model.alpha;
-                            else if (f < -MAX_EXP) g = (label - 0) * joint_model.alpha;
-                            else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * joint_model.alpha;
-                            for (c = 0; c < layer1_size; c++) neu1e[c] += g * text_model.syn1neg[c + l2];
-                            for (c = 0; c < layer1_size; c++) text_model.syn1neg[c + l2] += g * kg_model.syn0[c + l1];
-                        }
-                        // Learn weights input -> hidden
-                        for (c = 0; c < layer1_size; c++) kg_model.syn0[c + l1] += neu1e[c];
-                    }
-            }
-        }
+        }// end of cw
+        
         sentence_length = 0;
     }
     fclose(fi);
@@ -961,9 +964,9 @@ void InitModel(){
     p_model->alpha = alpha;
     p_model->vocab = (struct vocab_item *)calloc(p_model->vocab_max_size, sizeof(struct vocab_item));
     p_model->vocab_hash = (int *)calloc(vocab_hash_size, sizeof(int));
-    if (p_model->read_vocab_file[0] != 0) ReadVocab(); else LearnVocabFromTrainFile();
-    if (p_model->save_vocab_file[0] != 0) SaveVocab();
-    if (p_model->output_file[0] == 0) return;
+    if (read_vocab_path[0] != 0) ReadVocab(); else LearnVocabFromTrainFile();
+    if (save_vocab_path[0] != 0) SaveVocab();
+    if (output_path[0] == 0) return;
     InitNet();
     if (negative > 0) InitUnigramTable();
 }
@@ -1017,8 +1020,10 @@ int main(int argc, char **argv) {
         printf("\t\tUse anchor data from <file> to train align model\n");
         printf("\t-output_path <file>\n");
         printf("\t\tUse <path> to save the resulting vectors / vocab\n");
-        printf("\t-input_path <file>\n");
-        printf("\t\tUse <path> to read the vocab\n");
+        printf("\t-read_vocab_path <file>\n");
+        printf("\t\tUse <path> to read the word and entity vocab\n");
+        printf("\t-save_vocab_path <file>\n");
+        printf("\t\tUse <path> to save the word and entity vocab\n");
         printf("\t-size <int>\n");
         printf("\t\tSet size of word  / entity vectors; default is 100\n");
         printf("\t-window <int>\n");
@@ -1049,8 +1054,9 @@ int main(int argc, char **argv) {
         return 0;
     }
     
+    read_vocab_path[0]=0;
+    save_vocab_path[0]=0;
     output_path[0]=0;
-    input_path[0]=0;
     if ((i = ArgPos((char *)"-size", argc, argv)) > 0) layer1_size = atoi(argv[i + 1]);
     if ((i = ArgPos((char *)"-train_text", argc, argv)) > 0) strcpy(text_model.train_file, argv[i + 1]);
     if ((i = ArgPos((char *)"-train_kg", argc, argv)) > 0) strcpy(kg_model.train_file, argv[i + 1]);
@@ -1065,19 +1071,22 @@ int main(int argc, char **argv) {
     if ((i = ArgPos((char *)"-iter", argc, argv)) > 0) iter = atoi(argv[i + 1]);
     if ((i = ArgPos((char *)"-min-count", argc, argv)) > 0) min_count = atoi(argv[i + 1]);
     if ((i = ArgPos((char *)"-output_path", argc, argv)) > 0) strcpy(output_path, argv[i + 1]);
-    if ((i = ArgPos((char *)"-input_path", argc, argv)) > 0) strcpy(input_path, argv[i + 1]);
+    if ((i = ArgPos((char *)"-read_vocab_path", argc, argv)) > 0) strcpy(read_vocab_path, argv[i + 1]);
+    if ((i = ArgPos((char *)"-save_vocab_path", argc, argv)) > 0) strcpy(save_vocab_path, argv[i + 1]);
     if ((i = ArgPos((char *)"-cw", argc, argv)) > 0) cw = atoi(argv[i + 1]);
     if ((i = ArgPos((char *)"-sg", argc, argv)) > 0) sg = atoi(argv[i + 1]);
     
+    if(save_vocab_path[0]!=0){
+        sprintf(text_model.save_vocab_file, "%svocab_word.txt", save_vocab_path);
+        sprintf(kg_model.save_vocab_file, "%svocab_entity.txt", save_vocab_path);
+    }
     if(output_path[0]!=0){
         sprintf(text_model.output_file, "%svectors_word", output_path);
         sprintf(kg_model.output_file, "%svectors_entity", output_path);
-        sprintf(text_model.save_vocab_file, "%svocab_word.txt", output_path);
-        sprintf(kg_model.save_vocab_file, "%svocab_entity.txt", output_path);
     }
-    if(input_path[0]!=0){
-        sprintf(text_model.read_vocab_file, "%svocab_entity.txt", input_path);
-        sprintf(kg_model.read_vocab_file, "%svocab_entity.txt", input_path);
+    if(read_vocab_path[0]!=0){
+        sprintf(text_model.read_vocab_file, "%svocab_word.txt", read_vocab_path);
+        sprintf(kg_model.read_vocab_file, "%svocab_entity.txt", read_vocab_path);
     }
     
     strcpy(text_model.name, (char *)TEXT_MODEL);

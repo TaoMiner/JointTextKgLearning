@@ -75,7 +75,8 @@ public class EntPreProcess {
         String[] items = null;
         int line_count = 0;
         int sum = 0;
-        String tmp = null;
+        String[] tmp = null;
+        StringBuffer line_buffer = new StringBuffer();
         while((line = reader.readLine())!=null){
         	items = line.split("\t");
         	if(items.length<3)
@@ -83,18 +84,18 @@ public class EntPreProcess {
         	else{
         		sum = 0;
         		for(int i=2;i<items.length;i++){
-        			tmp = items[i].replaceAll("(.*)=", "");
-        			sum += Integer.parseInt(tmp);
-				if(sum>=min_count) break;
+        			tmp = items[i].split("=(?=[\\d]+$)");
+        			if(tmp.length!=2)
+        				continue;
+        			sum += Integer.parseInt(tmp[1]);
+        			line_buffer.append(tmp[0]).append("::=").append(items[0]).append("\n");
         		}
         		if(sum >= min_count){
-				line_count++;
-	        		for(int i=2;i<items.length;i++){
-	        			items[i] = items[i].replaceAll("=[\\d]+", "");
-	        			writer.write(items[i]+"::="+items[0]+"\n");
-	        		}
-			}
+        			line_count++;
+	        			writer.write(line_buffer.toString());
+        		}
         	}
+        	line_buffer.setLength(0);
         }
         reader.close();
         writer.close();

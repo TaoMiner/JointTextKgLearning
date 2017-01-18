@@ -7,10 +7,8 @@ import pdb
 
 eval_file = '../data/test_relatedness.dat'
 entity_dic_file = '../data/wiki2016/enwiki-ID.dat'
-entity_vec_file = '../etc/wiki2016ab/vectors_entity1.dat'
+entity_vec_file = '../etc/Ikuya/wiki2016/vectors_entity10.dat'
 log_file = '../etc/log_entity'
-
-p_struct_fmt = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 
 ent_id_dic = {}
 id_ent_dic = {}
@@ -62,7 +60,11 @@ def readEntityId(fin):
         return None
 
 def readEntityVector(fin):
-    global layer_size
+    global layer_size, p_struct_fmt
+    tmp_struct_fmt = []
+    for i in xrange(layer_size):
+        tmp_struct_fmt.append('f')
+    p_struct_fmt = "".join(tmp_struct_fmt)
     vec = np.array(struct.unpack(p_struct_fmt, fin.read(4*layer_size)), dtype=float)
     fin.read(1)
     return vec

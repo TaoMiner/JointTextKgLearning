@@ -119,7 +119,7 @@ public class MentionCounter {
 	public void saveCount(String count_file) throws Exception{
 	    BufferedWriter writer = new BufferedWriter(new FileWriter(count_file, false));
 	    for (Map.Entry<String, Integer> entry : this.mentions.entrySet()) {
-	    	writer.write(entry.getKey() + "=" + entry.getValue()+"\n");
+	    	writer.write(entry.getKey() + "::=" + entry.getValue()+"\n");
         } 
 	    writer.close();
 	}
