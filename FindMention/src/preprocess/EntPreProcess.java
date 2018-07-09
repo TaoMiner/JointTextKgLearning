@@ -19,7 +19,6 @@ public class EntPreProcess {
 
     //format: <13> property:hasMention "Salavan (city)" .
     //salavan::=13::;city
-	//格式化大小写为小写
     public static void formatter(String input_path, String output_path) throws Exception{
         BufferedReader reader = new BufferedReader(new FileReader(input_path));
         BufferedWriter writer = new BufferedWriter(new FileWriter(output_path, false));
@@ -38,7 +37,6 @@ public class EntPreProcess {
             if(count%1000000==0)
                 System.out.println("has format:"+count);
             count++;
-            //提取<13> property:hasMention "Salavan (city)" .
             items = line.split(" ", 3);
             //uri
             uri = items[0].replaceAll("<|>","");

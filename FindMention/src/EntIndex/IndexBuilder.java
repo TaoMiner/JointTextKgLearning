@@ -20,13 +20,12 @@ public class IndexBuilder {
     	cons.parseArgs(args);
     }
     
-    //读入entity列表
     public int loadLabels()throws IOException {
     	if(this.cons == null){
     		System.out.println("please init constants first!");
     		return -1;
     	}
-        BufferedReader reader = new BufferedReader(new FileReader(cons.label_list_path));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(cons.label_list_path), "UTF-8"));
         String line;
         String[] items=null;
         this.labels = new HashMap<String, String>();
@@ -46,7 +45,6 @@ public class IndexBuilder {
         return this.label_num;
     }
 
-    //建立并保存entity list的索引,
     public void build()throws IOException{
     	if(this.cons == null){
         	System.out.println("please init cons first!");

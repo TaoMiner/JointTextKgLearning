@@ -2,8 +2,13 @@ package util;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.InputStreamReader;
+import java.io.FileInputStream;
+import java.io.OutputStreamWriter;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -119,12 +124,71 @@ public class MentionCounter {
 	public void saveCount(String count_file) throws Exception{
 	    BufferedWriter writer = new BufferedWriter(new FileWriter(count_file, false));
 	    for (Map.Entry<String, Integer> entry : this.mentions.entrySet()) {
-	    	writer.write(entry.getKey() + "::=" + entry.getValue()+"\n");
+	    	writer.write(entry.getKey() + "=" + entry.getValue()+"\n");
         } 
 	    writer.close();
 	}
 	
-	
+	public void formatMention(String doc_path, String output_path) throws Exception{
+		BufferedReader fin = new BufferedReader(new InputStreamReader(new FileInputStream(doc_path),"UTF-8"));
+		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output_path), "UTF-8"));
+    	String line = null;
+    	String label = null;
+    	List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> can_mention_list = null;
+    	Pattern p=Pattern.compile("\\[\\[(.*?)\\]\\]");
+    	Matcher m=null;
+    	List<Integer> mention_list = null;
+    	String tmp_str = null;
+    	StringBuffer new_line = new StringBuffer();
+    	int line_count=0;
+    	while((line = fin.readLine())!=null){
+		line_count++;
+		if(line_count%10000==0) {System.out.printf("has processed %d lines.\n", line_count);}
+    		int start_pos = 0;
+        	int end_pos = 0;
+        	int new_start_pos = 0;
+        	int new_end_pos = 0;
+    		m = p.matcher(line);
+    		while(m.find()){
+    			end_pos = m.start();
+    			tmp_str = line.substring(start_pos, end_pos);
+    			can_mention_list = ibd.parseText(tmp_str);
+    			mention_list = findMention(can_mention_list, end_pos-start_pos);
+    			for(Integer index:mention_list){
+    				label = tmp_str.substring(can_mention_list.get(index).begin, can_mention_list.get(index).end);
+    				new_end_pos = can_mention_list.get(index).begin+start_pos;
+    				new_line.append(line.substring(new_start_pos, new_end_pos)).append("{{").append(label).append("}}");
+    				new_start_pos = can_mention_list.get(index).end+start_pos;
+    			}
+    			//add text mention count
+    			start_pos = m.end();
+    		}
+    		end_pos = line.length();
+    		if(start_pos!=end_pos){
+    			tmp_str = line.substring(start_pos, end_pos);
+    			can_mention_list = ibd.parseText(tmp_str);
+    			mention_list = findMention(can_mention_list, end_pos-start_pos);
+    			for(Integer index:mention_list){
+    				label = tmp_str.substring(can_mention_list.get(index).begin, can_mention_list.get(index).end);
+    				new_end_pos = can_mention_list.get(index).begin+start_pos;
+    				new_line.append(line.substring(new_start_pos, new_end_pos)).append("{{").append(label).append("}}");
+    				new_start_pos = can_mention_list.get(index).end+start_pos;
+    			}
+    		}
+    		new_end_pos = line.length();
+    		if(new_end_pos!=new_start_pos) new_line.append(line.substring(new_start_pos, new_end_pos));
+    		label = null;
+    		can_mention_list = null;
+    		mention_list = null;
+    		m = null;
+    		line = null;
+    		writer.write(new_line.toString());
+    		writer.newLine();
+    		new_line.setLength(0);
+    	}
+    	fin.close();
+    	writer.close();
+	}
 	
 	public static void main(String[] args) throws Exception{
 		String count_file = null;
@@ -134,8 +198,9 @@ public class MentionCounter {
 		mc.ibd.build();
 		mc.ibd.save();
 		//mc.ibd.load();
-		mc.mentions = mc.countMention(mc.ibd.cons.doc_file);
-		count_file = mc.ibd.cons.output_path+"mention_count";
-	    mc.saveCount(count_file);
+		//mc.mentions = mc.countMention(mc.ibd.cons.doc_file);
+		count_file = mc.ibd.cons.output_path+"train_text_mention";
+		//mc.saveCount(count_file);
+		mc.formatMention(mc.ibd.cons.doc_file, count_file);
 	}
 }

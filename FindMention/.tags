@@ -1,0 +1,129 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+AhoCorasickDoubleArrayTrie	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^public class AhoCorasickDoubleArrayTrie<V> implements Serializable$/;"	c
+Builder	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    private class Builder$/;"	c	class:AhoCorasickDoubleArrayTrie
+Common	src/Common/Constant.java	/^package Common;$/;"	p
+Constant	src/Common/Constant.java	/^public class Constant {$/;"	c
+EntIndex	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^package EntIndex;$/;"	p
+EntIndex	src/EntIndex/IndexBuilder.java	/^package EntIndex;$/;"	p
+EntIndex	src/EntIndex/State.java	/^package EntIndex;$/;"	p
+EntPreProcess	src/preprocess/EntPreProcess.java	/^public class EntPreProcess {$/;"	c
+Hit	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        public Hit(int begin, int end, V value)$/;"	m	class:AhoCorasickDoubleArrayTrie.Hit
+Hit	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public class Hit<V>$/;"	c	class:AhoCorasickDoubleArrayTrie
+IHit	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public interface IHit<V>$/;"	i	class:AhoCorasickDoubleArrayTrie
+IHitFull	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public interface IHitFull<V>$/;"	i	class:AhoCorasickDoubleArrayTrie
+IndexBuilder	src/EntIndex/IndexBuilder.java	/^public class IndexBuilder {$/;"	c
+MentionCounter	src/util/MentionCounter.java	/^public class MentionCounter {$/;"	c
+State	src/EntIndex/State.java	/^    public State()$/;"	m	class:State
+State	src/EntIndex/State.java	/^    public State(int depth)$/;"	m	class:State
+State	src/EntIndex/State.java	/^public class State$/;"	c
+addAllKeyword	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private void addAllKeyword(Collection<String> keywordSet)$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder	file:
+addEmit	src/EntIndex/State.java	/^    public void addEmit(Collection<Integer> emits)$/;"	m	class:State
+addEmit	src/EntIndex/State.java	/^    public void addEmit(int keyword)$/;"	m	class:State
+addKeyword	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private void addKeyword(String keyword, int index)$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder	file:
+addState	src/EntIndex/State.java	/^    public State addState(Character character)$/;"	m	class:State
+allocSize	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private int allocSize;$/;"	f	class:AhoCorasickDoubleArrayTrie.Builder	file:
+base	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    protected int base[];$/;"	f	class:AhoCorasickDoubleArrayTrie
+begin	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        public final int begin;$/;"	f	class:AhoCorasickDoubleArrayTrie.Hit
+build	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        public void build(Map<String, V> map)$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder
+build	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public void build(Map<String, V> map)$/;"	m	class:AhoCorasickDoubleArrayTrie
+build	src/EntIndex/IndexBuilder.java	/^    public void build()throws IOException{$/;"	m	class:IndexBuilder
+buildDoubleArrayTrie	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private void buildDoubleArrayTrie(int keySize)$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder	file:
+check	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    protected int check[];$/;"	f	class:AhoCorasickDoubleArrayTrie
+cons	src/EntIndex/IndexBuilder.java	/^    public Constant cons = null;$/;"	f	class:IndexBuilder
+constructFailureStates	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private void constructFailureStates()$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder	file:
+constructOutput	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private void constructOutput(State targetState)$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder	file:
+count	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        public int count = 0;$/;"	f	class:AhoCorasickDoubleArrayTrie.Builder
+countMention	src/util/MentionCounter.java	/^	public HashMap<String, Integer> countMention(String doc_path) throws Exception{$/;"	m	class:MentionCounter
+depth	src/EntIndex/State.java	/^    protected final int depth;$/;"	f	class:State
+doc_file	src/Common/Constant.java	/^    public String doc_file = null;$/;"	f	class:Constant
+emit	src/EntIndex/State.java	/^    public Collection<Integer> emit()$/;"	m	class:State
+emits	src/EntIndex/State.java	/^    private Set<Integer> emits = null;$/;"	f	class:State	file:
+end	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        public final int end;$/;"	f	class:AhoCorasickDoubleArrayTrie.Hit
+exactMatchSearch	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    private int exactMatchSearch(String key, int pos, int len, int nodePos)$/;"	m	class:AhoCorasickDoubleArrayTrie	file:
+exactMatchSearch	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    private int exactMatchSearch(char[] keyChars, int pos, int len, int nodePos)$/;"	m	class:AhoCorasickDoubleArrayTrie	file:
+exactMatchSearch	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public int exactMatchSearch(String key)$/;"	m	class:AhoCorasickDoubleArrayTrie
+fail	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    protected int fail[];$/;"	f	class:AhoCorasickDoubleArrayTrie
+failure	src/EntIndex/State.java	/^    private State failure = null;$/;"	f	class:State	file:
+failure	src/EntIndex/State.java	/^    public State failure()$/;"	m	class:State
+fetch	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private int fetch(State parent, List<Map.Entry<Integer, State>> siblings)$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder	file:
+findMention	src/util/MentionCounter.java	/^	public List<Integer> findMention(List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> mentionList, int doc_lenth){$/;"	m	class:MentionCounter
+formatMention	src/util/MentionCounter.java	/^	public void formatMention(String doc_path, String output_path) throws Exception{$/;"	m	class:MentionCounter
+formatter	src/preprocess/EntPreProcess.java	/^    public static void formatter(String input_path, String output_path) throws Exception{$/;"	m	class:EntPreProcess
+get	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public V get(String key)$/;"	m	class:AhoCorasickDoubleArrayTrie
+get	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public V get(int index)$/;"	m	class:AhoCorasickDoubleArrayTrie
+getDepth	src/EntIndex/State.java	/^    public int getDepth()$/;"	m	class:State
+getIndex	src/EntIndex/State.java	/^    public int getIndex()$/;"	m	class:State
+getLargestValueId	src/EntIndex/State.java	/^    public Integer getLargestValueId()$/;"	m	class:State
+getMentionList	src/preprocess/EntPreProcess.java	/^    public static void getMentionList(String input_path, String output_path, int min_count)throws Exception{$/;"	m	class:EntPreProcess
+getState	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    private int getState(int currentState, char character)$/;"	m	class:AhoCorasickDoubleArrayTrie	file:
+getStates	src/EntIndex/State.java	/^    public Collection<State> getStates()$/;"	m	class:State
+getSuccess	src/EntIndex/State.java	/^    public Map<Character, State> getSuccess()$/;"	m	class:State
+getTransitions	src/EntIndex/State.java	/^    public Collection<Character> getTransitions()$/;"	m	class:State
+hit	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        void hit(int begin, int end, V value);$/;"	m	interface:AhoCorasickDoubleArrayTrie.IHit
+hit	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        void hit(int begin, int end, V value, int index);$/;"	m	interface:AhoCorasickDoubleArrayTrie.IHitFull
+ibd	src/util/MentionCounter.java	/^	IndexBuilder ibd = null;$/;"	f	class:MentionCounter
+index	src/EntIndex/State.java	/^    private int index;$/;"	f	class:State	file:
+index_num	src/EntIndex/IndexBuilder.java	/^    int index_num = 0;$/;"	f	class:IndexBuilder
+initCons	src/EntIndex/IndexBuilder.java	/^    public void initCons(String[] args){$/;"	m	class:IndexBuilder
+input_path	src/Common/Constant.java	/^    public String input_path = null;$/;"	f	class:Constant
+insert	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private int insert(List<Map.Entry<Integer, State>> siblings)$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder	file:
+interval	src/Common/Constant.java	/^    public String interval = "\\t";$/;"	f	class:Constant
+isAcceptable	src/EntIndex/State.java	/^    public boolean isAcceptable()$/;"	m	class:State
+isMatchWords	src/Common/Constant.java	/^    public int isMatchWords = 1;$/;"	f	class:Constant
+isMatchWords	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^	protected boolean isMatchWords = false;$/;"	f	class:AhoCorasickDoubleArrayTrie
+keySize	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private int keySize;$/;"	f	class:AhoCorasickDoubleArrayTrie.Builder	file:
+l	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    protected int[] l;$/;"	f	class:AhoCorasickDoubleArrayTrie
+l_acdat	src/EntIndex/IndexBuilder.java	/^    private List<AhoCorasickDoubleArrayTrie<String>> l_acdat=new ArrayList<AhoCorasickDoubleArrayTrie<String>>();$/;"	f	class:IndexBuilder	file:
+label_list_path	src/Common/Constant.java	/^    public String label_list_path = null;$/;"	f	class:Constant
+label_num	src/EntIndex/IndexBuilder.java	/^    int label_num = 0;$/;"	f	class:IndexBuilder
+labels	src/EntIndex/IndexBuilder.java	/^	Map<String, String> labels = null;$/;"	f	class:IndexBuilder
+load	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public void load(ObjectInputStream in) throws IOException, ClassNotFoundException$/;"	m	class:AhoCorasickDoubleArrayTrie
+load	src/EntIndex/IndexBuilder.java	/^    public void load() throws Exception{$/;"	m	class:IndexBuilder
+loadLabels	src/EntIndex/IndexBuilder.java	/^    public int loadLabels()throws IOException {$/;"	m	class:IndexBuilder
+loseWeight	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private void loseWeight()$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder	file:
+main	src/preprocess/EntPreProcess.java	/^    public static void main(String[] args) throws Exception{$/;"	m	class:EntPreProcess
+main	src/util/MentionCounter.java	/^	public static void main(String[] args) throws Exception{$/;"	m	class:MentionCounter
+max_index_num	src/Common/Constant.java	/^    public int max_index_num = 4000000;$/;"	f	class:Constant
+mentions	src/util/MentionCounter.java	/^	HashMap<String, Integer> mentions = null;$/;"	f	class:MentionCounter
+nextCheckPos	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private int nextCheckPos;$/;"	f	class:AhoCorasickDoubleArrayTrie.Builder	file:
+nextState	src/EntIndex/State.java	/^    private State nextState(Character character, boolean ignoreRootState)$/;"	m	class:State	file:
+nextState	src/EntIndex/State.java	/^    public State nextState(Character character)$/;"	m	class:State
+nextStateIgnoreRootState	src/EntIndex/State.java	/^    public State nextStateIgnoreRootState(Character character)$/;"	m	class:State
+output	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    protected int[][] output;$/;"	f	class:AhoCorasickDoubleArrayTrie
+output_path	src/Common/Constant.java	/^    public String output_path = null;$/;"	f	class:Constant
+parseArgs	src/Common/Constant.java	/^    public void parseArgs(String[] args){$/;"	m	class:Constant
+parseText	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public List<Hit<V>> parseText(String text)$/;"	m	class:AhoCorasickDoubleArrayTrie
+parseText	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public void parseText(String text, IHit<V> processor)$/;"	m	class:AhoCorasickDoubleArrayTrie
+parseText	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public void parseText(char[] text, IHit<V> processor)$/;"	m	class:AhoCorasickDoubleArrayTrie
+parseText	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public void parseText(char[] text, IHitFull<V> processor)$/;"	m	class:AhoCorasickDoubleArrayTrie
+parseText	src/EntIndex/IndexBuilder.java	/^    public List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> parseText(String doc){$/;"	m	class:IndexBuilder
+preprocess	src/preprocess/EntPreProcess.java	/^package preprocess;$/;"	p
+progress	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private int progress;$/;"	f	class:AhoCorasickDoubleArrayTrie.Builder	file:
+resize	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private int resize(int newSize)$/;"	m	class:AhoCorasickDoubleArrayTrie.Builder	file:
+rootState	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private State rootState = new State();$/;"	f	class:AhoCorasickDoubleArrayTrie.Builder	file:
+save	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public void save(ObjectOutputStream out) throws IOException$/;"	m	class:AhoCorasickDoubleArrayTrie
+save	src/EntIndex/IndexBuilder.java	/^    public void save() throws Exception{$/;"	m	class:IndexBuilder
+saveCount	src/util/MentionCounter.java	/^	public void saveCount(String count_file) throws Exception{$/;"	m	class:MentionCounter
+setFailure	src/EntIndex/State.java	/^    public void setFailure(State failState, int fail[])$/;"	m	class:State
+setIndex	src/EntIndex/State.java	/^    public void setIndex(int index)$/;"	m	class:State
+setMatchUnit	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public void setMatchUnit(boolean isMatchWords){$/;"	m	class:AhoCorasickDoubleArrayTrie
+size	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    protected int size;$/;"	f	class:AhoCorasickDoubleArrayTrie
+size	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    public int size()$/;"	m	class:AhoCorasickDoubleArrayTrie
+storeEmits	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    private void storeEmits(int position, int currentState, List<Hit<V>> collectedEmits, String text)$/;"	m	class:AhoCorasickDoubleArrayTrie	file:
+success	src/EntIndex/State.java	/^    private Map<Character, State> success = new TreeMap<Character, State>();$/;"	f	class:State	file:
+test	src/test/test.java	/^package test;$/;"	p
+test	src/test/test.java	/^public class test {$/;"	c
+toString	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        public String toString()$/;"	m	class:AhoCorasickDoubleArrayTrie.Hit
+toString	src/EntIndex/State.java	/^    public String toString()$/;"	m	class:State
+transition	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    protected int transition(int current, char c)$/;"	m	class:AhoCorasickDoubleArrayTrie
+transitionWithRoot	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    protected int transitionWithRoot(int nodePos, char c)$/;"	m	class:AhoCorasickDoubleArrayTrie
+trie_path	src/Common/Constant.java	/^    public String trie_path = null;$/;"	f	class:Constant
+used	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        private boolean used[];$/;"	f	class:AhoCorasickDoubleArrayTrie.Builder	file:
+util	src/util/MentionCounter.java	/^package util;$/;"	p
+v	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^    protected V[] v;$/;"	f	class:AhoCorasickDoubleArrayTrie
+value	src/EntIndex/AhoCorasickDoubleArrayTrie.java	/^        public final V value;$/;"	f	class:AhoCorasickDoubleArrayTrie.Hit

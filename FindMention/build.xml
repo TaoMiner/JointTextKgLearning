@@ -48,10 +48,10 @@
         <antcall target="build"/>
     </target>
     <target name="preprocess">
-        <java classname="preprocess" failonerror="true" fork="yes">
+        <java classname="preprocess.EntPreProcess" failonerror="true" fork="yes">
             <jvmarg line="-Xmx20480m"/>
             <classpath refid="NED.classpath"/>
-        	<arg line="-label_file -doc_file -save_path " />
+        	<arg line="-input_file ../JTextKgForEL/data/wiki2016/ent_mention -output_file ./etc/mention_list -min_count 1" />
         </java>
     </target>
     <target name="IndexBuilder">
@@ -62,9 +62,9 @@
     </target>
     <target name="count">
         <java classname="util.MentionCounter" failonerror="true" fork="yes">
-        	<jvmarg line="-Xmx20480m"/>
+        	<jvmarg line="-Xmx40960m"/>
             <classpath refid="NED.classpath"/>
-        	<arg line="-label_file -doc_file -save_path " />
+        	<arg line="-label_file /data/m1/cyx/etc/enwiki/mapping_pair -doc_file /data/m1/cyx/etc/enwiki/train_text_cl -save_path ./etc/ -single_index_num 4000000" />
         </java>
     </target>
 </project>

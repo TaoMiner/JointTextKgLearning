@@ -17,7 +17,7 @@ public class Constant {
     public String doc_file = null;
     public int max_index_num = 4000000;
     public int isMatchWords = 1;
-    public String interval = "::=";
+    public String interval = "\t";
     
     public void parseArgs(String[] args){
     	if(args.length<2){
